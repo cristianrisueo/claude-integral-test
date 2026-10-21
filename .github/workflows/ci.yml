@@ -1,0 +1,139 @@
+# CI for every pull request to main. The job names are stable: harness, spec,
+# checks, e2e and terraform are required status checks on main. The audit job
+# is not a gate (it passes even on CHANGES REQUESTED); /ship is the gate.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    name: harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tools/spec-lint/go.mod
+          cache: false
+      - run: make harness-test
+
+  spec:
+    name: spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tools/spec-lint/go.mod
+          cache: false
+      - run: make spec-lint
+      - name: Approved change files are unchanged
+        run: tools/change-guard.sh origin/main
+
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ hashFiles('api/go.mod') != '' && 'api/go.mod' || 'tools/spec-lint/go.mod' }}
+          cache: false
+      - uses: actions/setup-node@v7
+        if: hashFiles('web/package-lock.json') != ''
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install web dependencies
+        if: hashFiles('web/package-lock.json') != ''
+        run: npm ci
+        working-directory: web
+      - uses: hashicorp/setup-terraform@v4
+        if: hashFiles('infra/**/*.tf') != ''
+      - run: make check
+      - run: make test
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        if: hashFiles('e2e/package-lock.json') != ''
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      # The change that creates e2e/ adds its setup here: npm ci, the
+      # Playwright browsers and `make up` for the local stack.
+      - run: make e2e
+
+  terraform:
+    name: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # TODO(bootstrap): when infra/envs/ exists, replace this step with:
+      #   - job permissions `id-token: write` and aws-actions/configure-aws-credentials
+      #     assuming the GitHub OIDC role (no stored keys, no secrets here);
+      #   - hashicorp/setup-terraform, then terraform fmt -check, init, validate and
+      #     plan -out=tfplan in each infra/envs/<env>/;
+      #   - terraform show -json tfplan > plan.json and tools/plan-guard.sh plan.json;
+      #   - terraform show -no-color tfplan > plan.txt, published with
+      #     actions/upload-artifact as "terraform-plan" for the audit.
+      - name: Plan
+        run: |
+          if [ -d infra/envs ]; then
+            echo "infra/envs/ exists but this job is not wired yet: see TODO(bootstrap) in ci.yml" >&2
+            exit 1
+          fi
+          echo "skip: infra/envs/ (does not exist yet)"
+
+  audit:
+    name: audit
+    needs: [harness, spec, checks, e2e, terraform]
+    # Not for drafts, not for propose/* PRs, never for forks (they get no secrets).
+    if: >-
+      success()
+      && github.event_name == 'pull_request'
+      && !github.event.pull_request.draft
+      && startsWith(github.head_ref, 'feat/')
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+      # The project settings start sessions in plan mode, which blocks
+      # `gh pr comment` in a non-interactive run; dontAsk runs exactly the
+      # allowed tools and denies the rest. The sandbox stays on, with GitHub
+      # allowlisted so gh can reach it.
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "/audit ${{ github.event.pull_request.number }}"
+          settings: '{"sandbox": {"network": {"allowedDomains": ["api.github.com", "github.com"]}}}'
+          claude_args: |
+            --model opus
+            --max-turns 40
+            --permission-mode dontAsk
+            --allowedTools "Read" "Glob" "Grep" "Bash(gh pr view *)" "Bash(gh pr diff *)" "Bash(gh pr checks *)" "Bash(gh pr comment *)" "Bash(gh issue list *)" "Bash(gh issue create *)" "Bash(gh label create *)"
