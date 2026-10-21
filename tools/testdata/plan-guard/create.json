@@ -1,0 +1,20 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.web",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "web",
+      "change": { "actions": ["create"], "before": null, "after": { "bucket": "claude-integral-test-web" } }
+    },
+    {
+      "address": "aws_ecr_repository.api",
+      "mode": "managed",
+      "type": "aws_ecr_repository",
+      "name": "api",
+      "change": { "actions": ["create"], "before": null, "after": { "name": "api" } }
+    }
+  ]
+}
