@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Merge a PR into main. Waits for green checks and, for feat/* PRs, an APPROVED audit; writes a short ship summary; asks Cristian; then squash-merges.
+description: Merge a PR into main. Waits for green checks and, for feat/* PRs, an APPROVED audit; shows the slice report or the proposal; asks Cristian; then squash-merges.
 argument-hint: <pr-number>
 model: sonnet
 effort: medium
@@ -25,21 +25,16 @@ You merge PR #$0, only when the gates are green and Cristian says yes. **Never l
   - `## Audit: HALTED`, or no audit comment at all: stop. Cristian decides.
 - **Any other branch:** stop and say so.
 
-## 3. Ship summary
+## 3. Show the document
 
-Write the summary from `.claude/templates/ship-summary.md`, at most about 15 lines. It must be readable without opening the PR. Include:
+Do not write a summary. Show Cristian the one document he approves, followed by one line. Take the document from `gh pr diff $0`: the PR adds it, so the diff holds all of it.
 
-- what was done, linked to requirement names;
-- how it was verified (tests and their counts, e2e, the Terraform plan);
-- the audit verdict and round;
-- the debt issues opened;
-- the decisions made on Cristian's behalf.
-
-The sources are the PR body, the slice report, the audit comment and the checks.
+- **`feat/*` PR:** the slice report, `reports/slice-<NN>.md` in the change folder (or its archived copy), then `Audit: APPROVED (round N)`.
+- **`propose/*` PR:** the change's `proposal.md`, then `No audit: propose PR, checks green`.
 
 ## 4. Merge
 
-1. Show the summary, then ask with `AskUserQuestion`: "Merge PR #$0 into main?"
+1. Show the document, then ask with `AskUserQuestion`: "Merge PR #$0 into main?"
 2. Only on a yes, run `gh pr merge $0 --squash --delete-branch`. Claude Code always prompts Cristian for this command, and that prompt is his green light. If he declines either question, stop.
 
 ## 5. Finish
