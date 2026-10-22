@@ -1,40 +1,18 @@
 # Slice report: <change-id> <NN> — <slice goal>
 
-## What changed and why
+## What was done
 
-- <change> — implements requirement "<Requirement name>"
+<A few short sentences in plain words: what changed, and what you can now do that you could not before.>
 
-## How it works
+Decisions made on Cristian's behalf:
 
-<A short explanation for a reader who has not seen the code. Add a small diagram when it helps.>
+- <The decision and why. Write "None." when there are none.>
 
-## How it was tested
+## How we checked it
 
-### Red
-
-<The command run against the stubs and the failing assertions it printed (trimmed).>
-
-### Green
-
-| Command      | Result                                                        |
-| ------------ | ------------------------------------------------------------- |
-| `make check` | <pass, or the failure>                                        |
-| `make test`  | <pass, with test counts>                                      |
-| `make e2e`   | <pass with counts, or "not run: the slice touches neither UI nor API"> |
-
-### Acceptance criteria
-
-| ID    | Verified by                  | Result |
-| ----- | ---------------------------- | ------ |
-| <AC1> | <test or command>            | <pass> |
-
-## Decisions made on Cristian's behalf
-
-- <decision and its reason. Write "None." when there are none.>
-
-## Risks and debt
-
-- <risk or debt. Write "None." when there are none.>
+| Criterion                     | Test or command              | Result                    |
+| ----------------------------- | ---------------------------- | ------------------------- |
+| <AC1: the criterion, briefly> | <test name, or the command>  | <pass, with counts>       |
 
 ## Check it yourself
 

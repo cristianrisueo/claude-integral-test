@@ -39,6 +39,7 @@
     ],
     "ask": [
       "Bash(gh pr merge *)",
+      "Bash(dangerouslyDisableSandbox:true)",
       "Edit(/.claude/**)",
       "Edit(/.github/workflows/**)",
       "Edit(/CLAUDE.md)",
@@ -64,6 +65,7 @@
   },
   "sandbox": {
     "enabled": true,
+    "excludedCommands": ["gh *"],
     "filesystem": {
       "allowWrite": ["~/Library/Caches/go-build", "~/.cache/go-build", "~/go/pkg/mod"]
     }

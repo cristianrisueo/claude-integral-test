@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CI twin of guard.sh rule G5, outside the agent's reach. On a feat/* branch it
 # fails if the diff against <base-ref> modifies or deletes an approved change
-# file (proposal.md, design.md, tasks.md, specs/** of openspec/changes/<id>/).
+# file (proposal.md, tasks.md, specs/** of openspec/changes/<id>/).
 # Allowed: pure renames (R100) of a whole change folder into
 # openspec/changes/archive/<YYYY-MM-DD>-<id>/, and anything under reports/.
 # propose/* and other branches are not checked.
@@ -21,7 +21,7 @@ if ! diff=$(git diff --name-status --find-renames "$base"...HEAD); then
   exit 2
 fi
 
-approved='^openspec/changes/(archive/[^/]+|[^/.][^/]*)/(proposal\.md|design\.md|tasks\.md|specs/.+)$'
+approved='^openspec/changes/(archive/[^/]+|[^/.][^/]*)/(proposal\.md|tasks\.md|specs/.+)$'
 is_approved() { printf '%s\n' "$1" | grep -Eq "$approved"; }
 
 # The change folder a path belongs to: openspec/changes/<id> or openspec/changes/archive/<dir>.

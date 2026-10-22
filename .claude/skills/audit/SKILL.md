@@ -21,7 +21,7 @@ You audit PR #$0. You are **read-only**: never edit a file, commit, push or fix 
 2. The change id and slice come from the head branch `feat/<change-id>-<NN>`.
 3. Read the change folder, `openspec/changes/<change-id>/` or its archived copy `openspec/changes/archive/*-<change-id>/`:
    - slice `<NN>` in `tasks.md`;
-   - `proposal.md` and `design.md`;
+   - `proposal.md`;
    - the delta specs;
    - `reports/slice-<NN>.md`.
 4. `gh pr diff $0`, `CLAUDE.md`, and the CI results with `gh pr checks $0`.

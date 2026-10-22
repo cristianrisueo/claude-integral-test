@@ -55,7 +55,7 @@ func TestRun(t *testing.T) {
 		wantOut  string
 	}{
 		{"valid tree", []string{"testdata/valid/openspec"}, 0, "spec-lint: ok"},
-		{"invalid tree", []string{"testdata/L1/openspec"}, 1, "L1: missing design.md"},
+		{"invalid tree", []string{"testdata/L1/openspec"}, 1, "L1: missing proposal.md"},
 		{"no arguments", nil, 2, ""},
 		{"missing directory", []string{"testdata/does-not-exist"}, 2, ""},
 	}

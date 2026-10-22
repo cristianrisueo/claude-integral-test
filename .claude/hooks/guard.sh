@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # PreToolUse guard (Bash|Edit|Write|NotebookEdit). Blocks what must never be
 # left to the model, whatever the permission rules say: exit 0 allows, exit 2
-# blocks and stderr goes to Claude. Rules G1-G7 are listed in guard_test.sh.
+# blocks and stderr goes to Claude. The rules:
+#   G1  deleting Docker volumes: docker compose down -v/--volumes, docker volume rm/prune.
+#   G2  terraform apply and terraform destroy.
+#   G3  git commit on main.
+#   G4  git push to main, force pushes and remote branch deletions.
+#   G5  on feat/*, writing, moving or deleting a change's approved files
+#       (proposal.md, tasks.md, specs/**); reports/ and the archive move are allowed.
+#   G6  writing, moving or deleting a migration under src/api/migrations/ that exists on main.
+#   G7  fail closed: jq missing, or an Edit/Write/NotebookEdit call without a path.
 set -uo pipefail
 
 block() {
@@ -74,19 +82,18 @@ check_path() {
   [[ -n $p ]] || return 0
 
   if [[ $branch == feat/* ]]; then
-    local approved='(^|/)openspec/changes/(archive/[^/]+|[^/.][^/]*)(/(proposal\.md|design\.md|tasks\.md|specs(/.*)?))?$'
+    local approved='(^|/)openspec/changes/(archive/[^/]+|[^/.][^/]*)(/(proposal\.md|tasks\.md|specs(/.*)?))?$'
     local globbed='(^|/)openspec/changes/.*[*?[]'
     if matches "$p" "$approved" || { matches "$p" "$globbed" && ! matches "$p" '/reports(/|$)'; }; then
-      block G5 "Writing, moving or deleting '$p' on branch '$branch'. The approved files of a change (proposal.md, design.md, tasks.md, specs/**) are immutable once merged.
+      block G5 "Writing, moving or deleting '$p' on branch '$branch'. The approved files of a change (proposal.md, tasks.md, specs/**) are immutable once merged.
 Allowed: write the slice report under openspec/changes/<id>/reports/. Archive the last slice with
   git mv openspec/changes/<id> openspec/changes/archive/<YYYY-MM-DD>-<id>
 A design change is a new change (/propose)."
     fi
   fi
 
-  if [[ -n $main_ref ]] && matches "$p" '(^|/)api/migrations(/.*)?$'; then
-    local m
-    m=$(printf '%s\n' "$p" | grep -oE 'api/migrations(/.*)?$' | head -n 1)
+  if [[ -n $main_ref ]] && matches "$p" '^src/api/migrations(/.*)?$'; then
+    local m=$p
     if git -C "$project_dir" cat-file -e "$main_ref:$m" 2>/dev/null; then
       block G6 "Writing, moving or deleting '$m', which already exists on $main_ref. Merged migrations are immutable.
 Allowed: create a new migration file with the next number."

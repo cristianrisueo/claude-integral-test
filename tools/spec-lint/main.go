@@ -1,5 +1,15 @@
 // Command spec-lint checks an openspec/ tree against the repository's spec
-// format (rules L1-L8, see lint.go).
+// format:
+//
+//	L1  a change in flight has proposal.md, tasks.md and at least one specs/<capability>/spec.md.
+//	L2  a delta spec has only ## ADDED, ## MODIFIED and ## REMOVED Requirements, and every requirement sits in one.
+//	L3  a requirement has a name, a SHALL or MUST and a #### Scenario:; a removed one has a **Reason**: line.
+//	L4  a scenario has a WHEN line and a THEN line.
+//	L5  requirement names are unique within a spec file.
+//	L6  tasks.md has "## Slice NN — <title>" sections numbered from 01 without gaps, each with an
+//	    acceptance criteria table whose "Verified by" cells are all filled.
+//	L7  each openspec/specs/<capability>/ has a spec.md with ## Purpose and ## Requirements.
+//	L8  no <placeholder> is left in any Markdown file, archive included.
 //
 // Usage: spec-lint <openspec-dir>
 //

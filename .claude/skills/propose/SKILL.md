@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Propose a new change. Interview Cristian, write openspec/changes/<change-id>/ (proposal, design, delta specs, tasks split into slices), lint it and open the propose/<change-id> PR. Run on main, in plan mode.
+description: Propose a new change. Interview Cristian, write openspec/changes/<change-id>/ (proposal, delta specs, tasks split into slices), lint it and open the propose/<change-id> PR. Run on main, in plan mode.
 argument-hint: <change-id> [one-line idea]
 model: opus
 effort: xhigh
@@ -25,7 +25,7 @@ Check all of these; if any fails, stop and say which and why:
 ## 2. Read
 
 - Read `openspec/specs/` (what the system does today).
-- If application code exists (`api/`, `web/`, `e2e/`, `infra/`), map the parts this idea touches with the built-in `Explore` subagent. Do not read the whole codebase yourself.
+- If application code exists (`src/api/`, `src/web/`, `src/e2e/`, `src/infra/`), map the parts this idea touches with the built-in `Explore` subagent. Do not read the whole codebase yourself.
 
 ## 3. Interview Cristian
 
@@ -40,10 +40,16 @@ Then present the plan with `ExitPlanMode`: the capabilities, the requirement nam
 
 ## 4. Write `openspec/changes/$0/` from the templates
 
-Copy the headings of each template in `.claude/templates/` exactly and replace every `<placeholder>`:
+Copy the headings of each template in `.claude/templates/` exactly and replace every `<placeholder>`. `proposal.md` is the one document Cristian reads to approve the change, so write it in short sentences, with no jargon the reader has to look up.
 
-- `proposal.md` from `proposal.md`: why, what changes, what is explicitly out of scope.
-- `design.md` from `design.md`: how, with each decision, its reason and its rejected alternatives.
+- `proposal.md` from `proposal.md`, with all five sections:
+  - "What we'll build": two or three lines.
+  - "What you'll see when it's done".
+  - "How we'll know it works".
+  - "Decisions": each choice and why, or "None.".
+  - "Out of scope".
+
+  Requirement names do not go here; they live in the delta specs.
 - `specs/<capability>/spec.md` from `spec-delta.md`, one per capability touched.
   - Keep only the `## ADDED`, `## MODIFIED` and `## REMOVED Requirements` sections that apply.
   - MODIFIED repeats the full new text of an existing requirement under its exact name.

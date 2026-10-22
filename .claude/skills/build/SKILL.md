@@ -37,7 +37,7 @@ Check all of these; if any fails, stop and say which and why:
 Read only:
 
 - slice `$1` in `tasks.md`;
-- `proposal.md` and `design.md`;
+- `proposal.md`;
 - the change's delta specs under `<change>specs/`;
 - the previous slice report, if any.
 
@@ -51,7 +51,7 @@ Present the plan with `ExitPlanMode`: the tests you will write for each acceptan
 
 - Write the tests named in the acceptance criteria first, with compiling stubs for the code they call.
 - Run them. They must **fail on assertions, not on compilation**. Fix the stubs until they do.
-- Keep the command and the failing output for the report.
+- Keep the command and the failing output for the PR description.
 
 ### 5. Green
 
@@ -62,7 +62,7 @@ Present the plan with `ExitPlanMode`: the tests you will write for each acceptan
 ### 6. Verify
 
 - Run `make check` and `make test`, plus `make e2e` when the slice touches the UI or the API.
-- Everything must be green. Keep every command and its result.
+- Everything must be green. Keep every command and its result for the PR description.
 
 ### 7. Archive (last slice only)
 
@@ -76,24 +76,23 @@ If `$1` is the last slice in `tasks.md`:
 2. `git mv openspec/changes/$0 openspec/changes/archive/$(date +%F)-$0`
 3. Run `make spec-lint` and fix `openspec/specs/` until it passes.
 
-The guard blocks any other write to the change's approved files (`proposal.md`, `design.md`, `tasks.md`, `specs/**`). That is final.
+The guard blocks any other write to the change's approved files (`proposal.md`, `tasks.md`, `specs/**`). That is final.
 
 ### 8. Report
 
-Write `reports/slice-$1.md` from `.claude/templates/slice-report.md`. It goes inside `<change>`, or inside the archived folder after step 7. Include:
+Write `reports/slice-$1.md` from `.claude/templates/slice-report.md`. It goes inside `<change>`, or inside the archived folder after step 7. The report is the one document Cristian reads to approve the merge, so write it like the proposal: short sentences, no jargon the reader has to look up. It has three sections:
 
-- what changed and why, linked to requirement names;
-- how it works, with a small diagram when it helps;
-- how it was tested, with the red and green evidence;
-- **decisions made on Cristian's behalf**;
-- risks and debt;
-- three commands Cristian can run to check it himself.
+- **What was done:** plain words, ending with the **decisions made on Cristian's behalf**, or "None.".
+- **How we checked it:** one table, Criterion | Test or command | Result, with a row per acceptance criterion.
+- **Check it yourself:** three commands Cristian can run, and what each should show.
+
+The red and green evidence does not go in the report; it goes in the PR description (step 9).
 
 ### 9. Commit, push, PR
 
 - Commit with Conventional Commits; small logical commits are fine.
 - `git push -u origin feat/$0-$1`.
-- `gh pr create --head feat/$0-$1 --title "feat($0): <slice goal>" --body-file -`, with the body filled from `.github/pull_request_template.md`.
+- `gh pr create --head feat/$0-$1 --title "feat($0): <slice goal>" --body-file -`, with the body filled from `.github/pull_request_template.md`. Its "Tests: red, then green" section holds the red run from step 4 (command and failing output, trimmed) and the green commands from step 6 with their results.
 
 ### 10. Finish
 

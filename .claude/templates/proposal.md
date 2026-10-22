@@ -1,17 +1,21 @@
 # Proposal: <change-id>
 
-## Why
+## What we'll build
 
-<The problem or need in one paragraph: who is affected and what happens today.>
+<Two or three lines: what the change adds or changes, and for whom.>
 
-## What changes
+## What you'll see when it's done
 
-- <One line per visible change: an endpoint, a screen, a table, a piece of infrastructure.>
+- <One line per thing you can see or do: a screen, a button, an endpoint, a resource in AWS.>
 
-## Capabilities
+## How we'll know it works
 
-- `<capability>`: <requirements ADDED, MODIFIED or REMOVED, by name>
+- <One line per check that proves it: a test, a command, a page to open.>
+
+## Decisions
+
+- <The choice, and why. Write "None." when there are none.>
 
 ## Out of scope
 
-- <What this change explicitly does not do, and why it waits.>
+- <What this change does not do, and why it waits.>

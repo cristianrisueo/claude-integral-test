@@ -14,5 +14,5 @@
 
 | ID  | Criterion                                                    | Verified by                                    |
 | --- | ------------------------------------------------------------ | ---------------------------------------------- |
-| AC1 | <observable behaviour, e.g. POST /api/users with a new email responds 201> | <test name and file, e.g. TestCreateUser in api/users_test.go> |
+| AC1 | <observable behaviour, e.g. POST /api/users with a new email responds 201> | <test name and file, e.g. TestCreateUser in src/api/users_test.go> |
 | AC2 | <observable behaviour, e.g. a duplicate email responds 409 email_taken> | <test name and file, or the exact command> |

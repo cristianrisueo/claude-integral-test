@@ -12,7 +12,7 @@
 
 | ID   | Criterion                                   | Verified by                              |
 | ---- | ------------------------------------------- | ---------------------------------------- |
-| AC1  | Deleting an existing user responds 204      | `TestDeleteUser` in `api/users_test.go`  |
+| AC1  | Deleting an existing user responds 204      | `TestDeleteUser` in `src/api/users_test.go`  |
 | AC2  | Deleting an unknown id responds 404         | `TestDeleteUnknownUser`                  |
 | AC3  | The package is vetted                       | `go vet ./... \| tee vet.log`            |
 
@@ -28,5 +28,5 @@
 
 | ID  | Criterion                         | Verified by                                    |
 | --- | --------------------------------- | ---------------------------------------------- |
-| AC1 | Clicking delete removes the row   | `e2e/users.spec.ts` "deletes a user"           |
+| AC1 | Clicking delete removes the row   | `src/e2e/users.spec.ts` "deletes a user"           |
 | AC2 | The suite passes                  | `make e2e | tail -n 5`                         |

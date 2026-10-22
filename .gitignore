@@ -1,7 +1,7 @@
 # Go
 *.test
 cover.out
-/api/bin/
+/src/api/bin/
 /tools/spec-lint/spec-lint
 
 # Node
@@ -27,3 +27,4 @@ crash.log
 # Claude Code personal files
 .claude/settings.local.json
 CLAUDE.local.md
+.claude/.cc-writes/
