@@ -25,7 +25,7 @@ Check all of these; if any fails, stop and say which and why:
 ## 2. Read
 
 - Read `openspec/specs/` (what the system does today).
-- If application code exists (`api/`, `web/`, `e2e/`, `infra/`), map the parts this idea touches with the built-in `Explore` subagent. Do not read the whole codebase yourself.
+- If application code exists (`src/api/`, `src/web/`, `src/e2e/`, `src/infra/`), map the parts this idea touches with the built-in `Explore` subagent. Do not read the whole codebase yourself.
 
 ## 3. Interview Cristian
 

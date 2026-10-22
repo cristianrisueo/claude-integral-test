@@ -21,16 +21,17 @@ case $file in
   *.go)
     command -v gofmt >/dev/null 2>&1 || exit 0
     out=$(gofmt -w "$file" 2>&1) || fail gofmt "$out"
-    if [[ -f $project_dir/api/go.mod ]] && command -v go >/dev/null 2>&1; then
+    if [[ -f $project_dir/src/api/go.mod ]] && command -v go >/dev/null 2>&1; then
       out=$(cd "$(dirname "$file")" && go vet . 2>&1) || fail "go vet" "$out"
     fi
     ;;
   *.ts | *.tsx | *.js | *.jsx | *.css | *.json)
     case $rel in
-      web/* | e2e/*) ;;
+      src/web/* | src/e2e/*) ;;
       *) exit 0 ;;
     esac
-    prettier=$project_dir/${rel%%/*}/node_modules/.bin/prettier
+    app=${rel#src/}
+    prettier=$project_dir/src/${app%%/*}/node_modules/.bin/prettier
     [[ -x $prettier ]] || exit 0
     out=$("$prettier" --write "$file" 2>&1) || fail prettier "$out"
     ;;

@@ -8,7 +8,7 @@
 #   G4  git push to main, force pushes and remote branch deletions.
 #   G5  on feat/*, writing, moving or deleting a change's approved files
 #       (proposal.md, tasks.md, specs/**); reports/ and the archive move are allowed.
-#   G6  writing, moving or deleting a migration under api/migrations/ that exists on main.
+#   G6  writing, moving or deleting a migration under src/api/migrations/ that exists on main.
 #   G7  fail closed: jq missing, or an Edit/Write/NotebookEdit call without a path.
 set -uo pipefail
 
@@ -92,9 +92,8 @@ A design change is a new change (/propose)."
     fi
   fi
 
-  if [[ -n $main_ref ]] && matches "$p" '(^|/)api/migrations(/.*)?$'; then
-    local m
-    m=$(printf '%s\n' "$p" | grep -oE 'api/migrations(/.*)?$' | head -n 1)
+  if [[ -n $main_ref ]] && matches "$p" '^src/api/migrations(/.*)?$'; then
+    local m=$p
     if git -C "$project_dir" cat-file -e "$main_ref:$m" 2>/dev/null; then
       block G6 "Writing, moving or deleting '$m', which already exists on $main_ref. Merged migrations are immutable.
 Allowed: create a new migration file with the next number."

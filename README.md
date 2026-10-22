@@ -6,24 +6,31 @@ A users CRUD application (create, read, update and delete users; no login) with 
 
 | Piece            | Choice                                                                                            |
 | ---------------- | ------------------------------------------------------------------------------------------------- |
-| Backend          | Go, standard library `net/http`, `pgx`, `golang-migrate` (`api/`)                                 |
-| Frontend         | React + Vite + TypeScript (`web/`)                                                                |
-| End-to-end tests | Playwright (`e2e/`)                                                                               |
+| Backend          | Go, standard library `net/http`, `pgx`, `golang-migrate` (`src/api/`)                             |
+| Frontend         | React + Vite + TypeScript (`src/web/`)                                                            |
+| End-to-end tests | Playwright (`src/e2e/`)                                                                           |
 | Database         | PostgreSQL: `docker compose` locally, RDS in production                                           |
-| Infrastructure   | Terraform (`infra/`), AWS `eu-west-1`: ECS Fargate + ALB, RDS, ECR, S3 + CloudFront               |
+| Infrastructure   | Terraform (`src/infra/`), AWS `eu-west-1`: ECS Fargate + ALB, RDS, ECR, S3 + CloudFront           |
 | CI/CD            | GitHub Actions, authenticated to AWS through OIDC (no stored keys)                                |
 
 The application folders are created by the changes that build them. Until then, `make` skips them.
 
 ## What's in this repository
 
-| Folder                             | What it holds                                                   | Who uses it                          |
-| ---------------------------------- | --------------------------------------------------------------- | ------------------------------------ |
-| `.claude/`                         | Claude Code settings, skills, hooks and templates               | Claude, in every session             |
-| `.github/`                         | The CI workflow and the pull request template                   | GitHub Actions, every PR             |
-| `openspec/`                        | What the app does today, and the changes in progress            | The owner and Claude                 |
-| `tools/`                           | Deterministic checks: spec lint, change guard, plan guard       | `make`, Claude's hooks and CI        |
-| `api/`, `web/`, `e2e/`, `infra/`   | The application, its tests and its infrastructure               | Created by later changes             |
+| Folder      | What it holds                                                                 | Who uses it                     |
+| ----------- | ----------------------------------------------------------------------------- | ------------------------------- |
+| `.claude/`  | Claude Code settings, skills, hooks and templates                             | Claude, in every session        |
+| `.github/`  | The CI workflow and the pull request template                                 | GitHub Actions, every PR        |
+| `openspec/` | What the app does today, and the changes in progress                          | The owner and Claude            |
+| `tools/`    | Deterministic checks: spec lint, change guard, plan guard                     | `make`, Claude's hooks and CI   |
+| `src/`      | The application: backend, frontend, end-to-end tests and infrastructure       | Created by later changes        |
+
+`src/` holds four folders, each created by the change that builds it:
+
+- `src/api/`: the Go backend and its database migrations;
+- `src/web/`: the React frontend;
+- `src/e2e/`: the Playwright end-to-end tests;
+- `src/infra/`: the Terraform for AWS.
 
 **`.claude/`** holds `settings.json` (permissions, the sandbox and the hooks), the four skills (`/propose`, `/build`, `/audit`, `/ship`), the hooks that block what must never happen (a commit on `main`, a force push, `terraform apply`, wiping the database) and the templates the skills fill in.
 

@@ -2,14 +2,13 @@
 
 ## Project
 
-A users CRUD (create, read, update, delete; no login) with a web UI, deployed to AWS end to end. The folders are:
-`api/` (the Go backend: `net/http`, `pgx`, `golang-migrate`),
-`web/` (React + Vite + TypeScript),
-`e2e/` (Playwright),
-`infra/` (Terraform for `eu-west-1`: ECS Fargate + ALB, RDS, ECR, S3 + CloudFront, with `/api/*` routed to the backend),
-`openspec/` (the specs and the changes in flight) and
-`tools/` (the harness tools).
-PostgreSQL runs under `docker compose` locally and on RDS in production. `api/`, `web/`, `e2e/` and `infra/` do not exist until a change creates them; the Makefile prints a skip for whatever is missing.
+A users CRUD (create, read, update, delete; no login) with a web UI, deployed to AWS end to end. All application code lives under `src/`:
+`src/api/` (the Go backend: `net/http`, `pgx`, `golang-migrate`),
+`src/web/` (React + Vite + TypeScript),
+`src/e2e/` (Playwright) and
+`src/infra/` (Terraform for `eu-west-1`: ECS Fargate + ALB, RDS, ECR, S3 + CloudFront, with `/api/*` routed to the backend).
+The harness lives beside it: `openspec/` (the specs and the changes in flight) and `tools/` (the harness tools).
+PostgreSQL runs under `docker compose` locally and on RDS in production. `src/api/`, `src/web/`, `src/e2e/` and `src/infra/` do not exist until a change creates them; the Makefile prints a skip for whatever is missing.
 
 ## How we work
 
@@ -32,9 +31,9 @@ Use these verbs. Never call the underlying tool directly when a verb exists.
 
 | Verb                    | Runs                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `make check`            | `make harness-test`, then `gofmt -l` + `go vet` (api), `npm run lint` + `typecheck` (web), `terraform fmt -check` + `validate` (infra) |
-| `make test`             | `go test -race -count=1 ./...` (api), `npm test -- --run` (web)                                               |
-| `make e2e`              | Playwright in `e2e/` against the local stack                                                                  |
+| `make check`            | `make harness-test`, then `gofmt -l` + `go vet` (`src/api`), `npm run lint` + `typecheck` (`src/web`), `terraform fmt -check` + `validate` (`src/infra`) |
+| `make test`             | `go test -race -count=1 ./...` (`src/api`), `npm test -- --run` (`src/web`)                                   |
+| `make e2e`              | Playwright in `src/e2e/` against the local stack                                                              |
 | `make up` / `make down` | `docker compose up -d --wait` / `docker compose down` (never `-v`)                                            |
 | `make harness-test`     | Tests of the hooks, `change-guard`, `plan-guard` and `spec-lint`                                              |
 | `make spec-lint`        | Lints `openspec/`                                                                                             |

@@ -16,9 +16,11 @@ g init -q
 g symbolic-ref HEAD refs/heads/main
 g config user.email guard-test@example.com
 g config user.name guard-test
-mkdir -p "$repo/openspec/changes/demo/specs/users" "$repo/api/migrations"
+mkdir -p "$repo/openspec/changes/demo/specs/users" "$repo/src/api/migrations" "$repo/api/migrations"
 for f in proposal tasks; do echo "# $f" >"$repo/openspec/changes/demo/$f.md"; done
 echo "# Users" >"$repo/openspec/changes/demo/specs/users/spec.md"
+echo "CREATE TABLE users ();" >"$repo/src/api/migrations/000001_init.up.sql"
+# The old location, committed too, to prove G6 no longer protects it.
 echo "CREATE TABLE users ();" >"$repo/api/migrations/000001_init.up.sql"
 g add -A
 g commit -q -m init
@@ -75,7 +77,7 @@ bash_case G1 allow main 'docker compose down --remove-orphans'
 
 # G2: Terraform apply / destroy
 bash_case G2 block main 'terraform apply'
-bash_case G2 block main 'terraform -chdir=infra/envs/prod destroy -auto-approve'
+bash_case G2 block main 'terraform -chdir=src/infra/envs/prod destroy -auto-approve'
 bash_case G2 block main 'cd infra && terraform apply tfplan'
 bash_case G2 block main 'echo "$(terraform apply -auto-approve)"'
 bash_case G2 allow main 'terraform plan -out=tfplan'
@@ -130,14 +132,18 @@ file_case G5 allow $P Edit $C/proposal.md
 bash_case G5 allow $P "echo x >> $C/tasks.md"
 
 # G6: migrations that already exist on main
-file_case G6 block $F Edit api/migrations/000001_init.up.sql
-file_case G6 block $P Write api/migrations/000001_init.up.sql
-bash_case G6 block $F 'rm api/migrations/000001_init.up.sql'
-bash_case G6 block $F "echo 'DROP TABLE users;' >> api/migrations/000001_init.up.sql"
-bash_case G6 block $F 'rm -rf api/migrations'
-file_case G6 allow $F Write api/migrations/000002_users.up.sql
-bash_case G6 allow $F 'cat api/migrations/000001_init.up.sql'
-bash_case G6 allow $F "echo 'CREATE INDEX x;' > api/migrations/000002_index.up.sql"
+file_case G6 block $F Edit src/api/migrations/000001_init.up.sql
+file_case G6 block $P Write src/api/migrations/000001_init.up.sql
+bash_case G6 block $F 'rm src/api/migrations/000001_init.up.sql'
+bash_case G6 block $F "echo 'DROP TABLE users;' >> src/api/migrations/000001_init.up.sql"
+bash_case G6 block $F 'rm -rf src/api/migrations'
+bash_case G6 block $F 'git mv src/api/migrations/000001_init.up.sql src/api/migrations/000003_init.up.sql'
+file_case G6 allow $F Write src/api/migrations/000002_users.up.sql
+bash_case G6 allow $F 'cat src/api/migrations/000001_init.up.sql'
+bash_case G6 allow $F "echo 'CREATE INDEX x;' > src/api/migrations/000002_index.up.sql"
+# The old api/migrations/ is no longer protected, even when committed on main.
+file_case G6 allow $F Edit api/migrations/000001_init.up.sql
+bash_case G6 allow $F 'rm api/migrations/000001_init.up.sql'
 
 # Heredoc bodies are data (PR bodies, audit comments), unless a shell reads them.
 bash_case G4 allow $F $'gh pr comment 7 --body-file - <<\'EOF\'\nNever `git push --force` or `terraform apply`.\nrm -rf openspec/changes/demo\nEOF'
