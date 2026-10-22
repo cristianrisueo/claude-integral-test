@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse guard (Bash|Edit|Write|NotebookEdit). Blocks what must never be
 # left to the model, whatever the permission rules say: exit 0 allows, exit 2
-# blocks and stderr goes to Claude. Rules G1-G7 are in docs/harness-spec.md 3.5.1.
+# blocks and stderr goes to Claude. Rules G1-G7 are listed in guard_test.sh.
 set -uo pipefail
 
 block() {

@@ -1,5 +1,5 @@
 // Command spec-lint checks an openspec/ tree against the repository's spec
-// format (docs/harness-spec.md, sections 3.6 and 3.7).
+// format (rules L1-L8, see lint.go).
 //
 // Usage: spec-lint <openspec-dir>
 //

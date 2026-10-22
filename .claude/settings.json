@@ -63,7 +63,10 @@
     "typescript-lsp@claude-plugins-official": true
   },
   "sandbox": {
-    "enabled": true
+    "enabled": true,
+    "filesystem": {
+      "allowWrite": ["~/Library/Caches/go-build", "~/.cache/go-build", "~/go/pkg/mod"]
+    }
   },
   "hooks": {
     "PreToolUse": [
