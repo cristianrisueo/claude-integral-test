@@ -53,7 +53,8 @@ resource "aws_iam_role_policy_attachment" "plan_read_only" {
 }
 
 # ReadOnlyAccess cannot write, but terraform plan creates and deletes the
-# <key>.tflock file next to the state (use_lockfile).
+# <key>.tflock file next to the state (use_lockfile). It never writes the
+# state itself, so writes are limited to lock files.
 data "aws_iam_policy_document" "plan_state" {
   statement {
     sid       = "ListStateBucket"
@@ -62,9 +63,15 @@ data "aws_iam_policy_document" "plan_state" {
   }
 
   statement {
-    sid       = "ReadWriteStateObjects"
-    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    sid       = "ReadStateObjects"
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.state.arn}/*"]
+  }
+
+  statement {
+    sid       = "WriteLockFiles"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.state.arn}/*.tflock"]
   }
 }
 
