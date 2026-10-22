@@ -20,7 +20,7 @@ Every piece of work is a change in `openspec/changes/<id>/`, built one slice at 
 | `/propose <id> [idea]`   | locally, on `main`       | Interviews Cristian, writes the change, opens the `propose/<id>` PR                           |
 | `/build <id> <NN>`       | locally                  | Builds one slice tests-first and opens `feat/<id>-<NN>`; rerun for the one fix round          |
 | `/audit <pr>`            | in CI only, never locally | Read-only verdict comment on `feat/*` PRs                                                     |
-| `/ship <pr>`             | locally                  | Waits for checks and the verdict, shows the report or proposal, asks Cristian, squash-merges  |
+| `/ship <pr>`             | locally                  | Waits for checks (and the verdict on `feat/*`), shows the slice report, the proposal or a `chore/*` PR's description, asks Cristian, squash-merges |
 
 - One slice per session.
 - Work always starts in plan mode: present the plan and wait for approval before editing.

@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Merge a PR into main. Waits for green checks and, for feat/* PRs, an APPROVED audit; shows the slice report or the proposal; asks Cristian; then squash-merges.
+description: Merge a PR into main. Waits for green checks and, for feat/* PRs, an APPROVED audit; shows the slice report, the proposal or, for chore/* PRs, the PR description; asks Cristian; then squash-merges.
 argument-hint: <pr-number>
 model: sonnet
 effort: medium
@@ -19,6 +19,7 @@ You merge PR #$0, only when the gates are green and Cristian says yes. **Never l
 ## 2. Audit verdict
 
 - **`propose/*` PR:** it needs no audit verdict, only green checks. Go to step 3.
+- **`chore/*` PR:** harness maintenance. It needs no audit verdict, only green checks. Go to step 3.
 - **`feat/*` PR:** read the latest comment that starts with `<!-- harness:audit -->`.
   - `## Audit: APPROVED`: go on.
   - `## Audit: CHANGES REQUESTED`: stop. The next step is `/build <change-id> <NN>` (fix round), in a new session.
@@ -27,10 +28,11 @@ You merge PR #$0, only when the gates are green and Cristian says yes. **Never l
 
 ## 3. Show the document
 
-Do not write a summary. Show Cristian the one document he approves, followed by one line. Take the document from `gh pr diff $0`: the PR adds it, so the diff holds all of it.
+Do not write a summary. Show Cristian the one document he approves, followed by one line. For a `feat/*` or `propose/*` PR, take the document from `gh pr diff $0`: the PR adds it, so the diff holds all of it.
 
 - **`feat/*` PR:** the slice report, `reports/slice-<NN>.md` in the change folder (or its archived copy), then `Audit: APPROVED (round N)`.
 - **`propose/*` PR:** the change's `proposal.md`, then `No audit: propose PR, checks green`.
+- **`chore/*` PR:** the PR description (the `body` from step 1), then `No audit: chore PR, checks green`.
 
 ## 4. Merge
 
@@ -39,8 +41,11 @@ Do not write a summary. Show Cristian the one document he approves, followed by 
 
 ## 5. Finish
 
-1. Run `git switch main && git pull`.
+1. Run `git switch main`, then `git pull`, as two separate commands.
+   - If either fails with `unable to unlink old`, the sandbox stopped it from replacing a protected file under `.claude/skills/` or `.claude/hooks/`. Offer to rerun **that one command** unsandboxed, and wait for Cristian's approval. Retry nothing else.
+   - Never add git commands to `sandbox.excludedCommands` to avoid this.
 2. Report what comes next:
+   - **chore PR:** nothing; the harness change is live on `main`.
    - **propose PR:** `/build <change-id> 01`, in a new session.
    - **Slice that is not the last:** `/build <change-id> <NN+1>`, in a new session.
    - **Last slice:** the change is complete; its folder is in `openspec/changes/archive/`.
