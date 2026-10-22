@@ -20,7 +20,7 @@ Every piece of work is a change in `openspec/changes/<id>/`, built one slice at 
 | `/propose <id> [idea]`   | locally, on `main`       | Interviews Cristian, writes the change, opens the `propose/<id>` PR                           |
 | `/build <id> <NN>`       | locally                  | Builds one slice tests-first and opens `feat/<id>-<NN>`; rerun for the one fix round          |
 | `/audit <pr>`            | in CI only, never locally | Read-only verdict comment on `feat/*` PRs                                                     |
-| `/ship <pr>`             | locally                  | Waits for checks and the verdict, summarises, asks Cristian, squash-merges                    |
+| `/ship <pr>`             | locally                  | Waits for checks and the verdict, shows the report or proposal, asks Cristian, squash-merges  |
 
 - One slice per session.
 - Work always starts in plan mode: present the plan and wait for approval before editing.
@@ -43,7 +43,7 @@ Use these verbs. Never call the underlying tool directly when a verb exists.
 
 - `openspec/specs/<capability>/spec.md` is what the system does today.
 - `openspec/changes/<id>/` is a change in flight; `openspec/changes/archive/` holds finished changes.
-- A change's `proposal.md`, `design.md`, `tasks.md` and `specs/**` are immutable once merged to `main`. Only its `reports/` grows, and archiving moves the whole folder. A design change is a new change.
+- A change's `proposal.md`, `tasks.md` and `specs/**` are immutable once merged to `main`. Only its `reports/` grows, and archiving moves the whole folder. A design change is a new change.
 - Requirement names are the IDs that slices, tests and reports cite.
 - If code and spec disagree, stop and say so. Never silently pick one.
 
@@ -51,13 +51,13 @@ Use these verbs. Never call the underlying tool directly when a verb exists.
 
 - Never commit or push on `main`. It changes only through squash-merged PRs.
 - Branches are `propose/<id>` for a proposal and `feat/<id>-<NN>` for a slice.
-- Harness maintenance (`.claude/`, `CLAUDE.md`, `Makefile`, `tools/`, workflows) goes on `chore/*` branches: CI runs on them, the audit does not.
+- Harness maintenance (`.claude/`, `CLAUDE.md`, `Makefile`, `tools/`, `.github/`) goes on `chore/*` branches. CI runs on them; the audit does not.
 - Use Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `ci:`, `refactor:`). The PR title becomes the squash commit and follows the same convention.
 - Never force push. Never merge except through `/ship`.
 
 ## Testing
 
-- Write tests first. Record a red run, failing on assertions and not on compilation, before the implementation.
+- Write tests first. Record a red run in the PR description, failing on assertions and not on compilation, before the implementation.
 - Test files that exist on `main` are never weakened or deleted. If one is wrong, report it.
 
 ## Safety

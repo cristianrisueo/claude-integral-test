@@ -27,3 +27,4 @@ crash.log
 # Claude Code personal files
 .claude/settings.local.json
 CLAUDE.local.md
+.claude/.cc-writes/
