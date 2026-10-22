@@ -65,7 +65,7 @@ Run `make spec-lint` and fix the change until it passes.
 1. `git switch -c propose/$0`
 2. `git add openspec/changes/$0` and commit `docs($0): propose $0`.
 3. `git push -u origin propose/$0`
-4. Open the PR with `gh pr create --title "docs($0): propose $0" --body-file -`. Fill the body from `.github/pull_request_template.md`; the slice is "proposal", and the slice report is not needed.
+4. Open the PR with `gh pr create --head propose/$0 --title "docs($0): propose $0" --body-file -`. Fill the body from `.github/pull_request_template.md`; the slice is "proposal", and the slice report is not needed.
 
 ## 7. Finish
 

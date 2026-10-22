@@ -93,7 +93,7 @@ Write `reports/slice-$1.md` from `.claude/templates/slice-report.md`. It goes in
 
 - Commit with Conventional Commits; small logical commits are fine.
 - `git push -u origin feat/$0-$1`.
-- `gh pr create --title "feat($0): <slice goal>" --body-file -`, with the body filled from `.github/pull_request_template.md`.
+- `gh pr create --head feat/$0-$1 --title "feat($0): <slice goal>" --body-file -`, with the body filled from `.github/pull_request_template.md`.
 
 ### 10. Finish
 
@@ -106,7 +106,7 @@ Tell Cristian:
 
 ## Fix round
 
-Run this on `feat/$0-$1`, after `git switch feat/$0-$1 && git pull`.
+Run this on `feat/$0-$1`, after `git switch feat/$0-$1 && git pull origin feat/$0-$1`. Name the branch explicitly: the sandbox cannot write `.git/config`, so `git push -u` does not record an upstream.
 
 1. If the slice report already has a `## Fix round` section, stop: the slice has had its one fix round, and Cristian decides.
 2. Address every **blocking** finding of the latest audit comment. Fix non-blocking findings only if they are trivial and inside the slice's scope. Existing tests stay as they are.
