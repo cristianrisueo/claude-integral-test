@@ -121,7 +121,7 @@ func (l *linter) lintChanges() error {
 }
 
 func (l *linter) lintChange(dir string) error {
-	for _, name := range []string{"proposal.md", "design.md", "tasks.md"} {
+	for _, name := range []string{"proposal.md", "tasks.md"} {
 		if !isFile(filepath.Join(dir, name)) {
 			l.add(dir, 0, "L1", "missing %s", name)
 		}

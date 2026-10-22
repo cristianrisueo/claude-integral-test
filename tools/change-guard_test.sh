@@ -17,7 +17,6 @@ g config user.name change-guard-test
 C=openspec/changes/demo
 mkdir -p "$repo/$C/specs/users" "$repo/openspec/specs/users"
 echo "# Proposal: demo, why and what" >"$repo/$C/proposal.md"
-echo "# Design: demo, decisions and reasons" >"$repo/$C/design.md"
 echo "# Tasks: demo, slice 01 and its criteria" >"$repo/$C/tasks.md"
 echo "# Users delta: ADDED Create a user" >"$repo/$C/specs/users/spec.md"
 echo "# Users specification today" >"$repo/openspec/specs/users/spec.md"
@@ -55,7 +54,7 @@ check fail 'feat/*: deleting tasks.md' feat/demo-02 \
 check fail 'feat/*: adding a spec to an approved change' feat/demo-03 \
   "mkdir -p $C/specs/orders && echo '# Orders delta' > $C/specs/orders/spec.md"
 check fail 'feat/*: archive move that also edits a file' feat/demo-04 \
-  "mkdir -p openspec/changes/archive && git mv $C openspec/changes/archive/2026-10-21-demo && echo edited >> openspec/changes/archive/2026-10-21-demo/design.md"
+  "mkdir -p openspec/changes/archive && git mv $C openspec/changes/archive/2026-10-21-demo && echo edited >> openspec/changes/archive/2026-10-21-demo/tasks.md"
 check fail 'feat/*: moving a change somewhere other than the archive' feat/demo-05 \
   "git mv $C openspec/changes/demo-renamed"
 check pass 'feat/*: adding a slice report' feat/demo-06 \

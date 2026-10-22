@@ -17,7 +17,7 @@ g symbolic-ref HEAD refs/heads/main
 g config user.email guard-test@example.com
 g config user.name guard-test
 mkdir -p "$repo/openspec/changes/demo/specs/users" "$repo/api/migrations"
-for f in proposal design tasks; do echo "# $f" >"$repo/openspec/changes/demo/$f.md"; done
+for f in proposal tasks; do echo "# $f" >"$repo/openspec/changes/demo/$f.md"; done
 echo "# Users" >"$repo/openspec/changes/demo/specs/users/spec.md"
 echo "CREATE TABLE users ();" >"$repo/api/migrations/000001_init.up.sql"
 g add -A
@@ -106,17 +106,17 @@ bash_case G4 allow $P 'git push -u origin propose/demo'
 # G5: approved change files on feat/* branches
 file_case G5 block $F Edit $C/proposal.md
 file_case G5 block $F Write $C/specs/users/spec.md
-file_case G5 block $F Write $C/design.md
+file_case G5 block $F Write $C/tasks.md
 bash_case G5 block $F "rm $C/tasks.md"
 bash_case G5 block $F "rm -rf $C"
 bash_case G5 block $F "rm -rf openspec/changes/*"
-bash_case G5 block $F "echo x > $C/design.md"
-bash_case G5 block $F "echo x >> $C/design.md"
+bash_case G5 block $F "echo x > $C/proposal.md"
+bash_case G5 block $F "echo x >> $C/tasks.md"
 bash_case G5 block $F "sed -i '' 's/a/b/' $C/tasks.md"
 bash_case G5 block $F "printf x | tee $C/specs/users/spec.md"
 bash_case G5 block $F "truncate -s 0 $C/proposal.md"
 bash_case G5 block $F "cp /tmp/x $C/proposal.md"
-bash_case G5 block $F "mv $C/design.md /tmp/design.md"
+bash_case G5 block $F "mv $C/tasks.md /tmp/tasks.md"
 bash_case G5 block $F "git rm $C/proposal.md"
 bash_case G5 block $F "mv $C openspec/changes/archive/2026-10-21-demo"
 bash_case G5 block $F "git mv $C/specs openspec/changes/archive/2026-10-21-demo"
