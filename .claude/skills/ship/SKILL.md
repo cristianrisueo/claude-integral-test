@@ -44,7 +44,12 @@ Do not write a summary. Show Cristian the one document he approves, followed by 
 1. Run `git switch main`, then `git pull`, as two separate commands.
    - If either fails with `unable to unlink old`, the sandbox stopped it from replacing a protected file under `.claude/skills/` or `.claude/hooks/`. Offer to rerun **that one command** unsandboxed, and wait for Cristian's approval. Retry nothing else.
    - Never add git commands to `sandbox.excludedCommands` to avoid this.
-2. Report what comes next:
+2. Run `git fetch --prune`.
+3. Delete the local branch of the merged PR, the `headRefName` from step 1:
+   - If `git branch --list <headRefName>` prints nothing, `gh pr merge --delete-branch` already deleted it. Skip this step.
+   - Otherwise run `git branch -D <headRefName>`.
+   - Never delete `main`.
+4. Report what comes next:
    - **chore PR:** nothing; the harness change is live on `main`.
    - **propose PR:** `/build <change-id> 01`, in a new session.
    - **Slice that is not the last:** `/build <change-id> <NN+1>`, in a new session.
