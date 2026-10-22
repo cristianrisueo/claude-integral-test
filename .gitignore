@@ -1,0 +1,29 @@
+# Go
+*.test
+cover.out
+/api/bin/
+/tools/spec-lint/spec-lint
+
+# Node
+node_modules/
+dist/
+playwright-report/
+test-results/
+
+# Terraform
+.terraform/
+*.tfstate*
+*.tfplan
+crash.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Claude Code personal files
+.claude/settings.local.json
+CLAUDE.local.md

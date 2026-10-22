@@ -1,0 +1,20 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "resource_changes": [
+    {
+      "address": "aws_ecs_service.api",
+      "mode": "managed",
+      "type": "aws_ecs_service",
+      "name": "api",
+      "change": { "actions": ["update"], "before": { "desired_count": 1 }, "after": { "desired_count": 2 } }
+    },
+    {
+      "address": "aws_s3_bucket.web",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "web",
+      "change": { "actions": ["no-op"], "before": { "bucket": "claude-integral-test-web" }, "after": { "bucket": "claude-integral-test-web" } }
+    }
+  ]
+}
