@@ -8,7 +8,7 @@ A users CRUD (create, read, update, delete; no login) with a web UI, deployed to
 `src/e2e/` (Playwright) and
 `src/infra/` (Terraform for `eu-west-1`: ECS Fargate + ALB, RDS, ECR, S3 + CloudFront, with `/api/*` routed to the backend).
 The harness lives beside it: `openspec/` (the specs and the changes in flight) and `tools/` (the harness tools).
-PostgreSQL runs under `docker compose` locally and on RDS in production. `src/api/`, `src/web/`, `src/e2e/` and `src/infra/` do not exist until a change creates them; the Makefile prints a skip for whatever is missing.
+PostgreSQL runs under `docker compose` locally and on RDS in production. `src/api/`, `src/web/`, `src/e2e/` and `src/infra/` do not exist until a change creates them; the Makefile prints a skip for whatever is missing. The one exception is `src/infra/bootstrap/`: the one-time state bucket and GitHub OIDC roles, applied by Cristian by hand. Never run `plan` or `apply` there.
 
 ## How we work
 

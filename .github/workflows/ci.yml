@@ -62,8 +62,11 @@ jobs:
         if: hashFiles('src/web/package-lock.json') != ''
         run: npm ci
         working-directory: src/web
+      # Keep terraform_version equal to required_version in src/infra/**/versions.tf.
       - uses: hashicorp/setup-terraform@v4
         if: hashFiles('src/infra/**/*.tf') != ''
+        with:
+          terraform_version: 1.15.3
       - run: make check
       - run: make test
 
@@ -87,6 +90,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # Only src/infra/envs/<env>/ is planned here. src/infra/bootstrap/ is
+      # applied once by hand (its README) and must never be planned in CI nor
+      # go through plan-guard; make check (checks job) validates it.
       # TODO(bootstrap): when src/infra/envs/ exists, replace this step with:
       #   - job permissions `id-token: write` and aws-actions/configure-aws-credentials
       #     assuming the GitHub OIDC role (no stored keys, no secrets here);
