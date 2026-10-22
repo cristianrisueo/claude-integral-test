@@ -15,8 +15,6 @@ You audit PR #$0. You are **read-only**: never edit a file, commit, push or fix 
 - `gh pr view`, `gh pr diff`, `gh pr checks`, `gh pr comment`;
 - `gh issue list`, `gh issue create`, `gh label create`.
 
-**Exception, removed together with `docs/harness-spec.md`:** if the PR's head branch is `feat/harness-skeleton`, the change is `docs/harness-spec.md` itself. Its section 4 is the acceptance criteria and its section 1 the scope.
-
 ## 1. Read
 
 1. `gh pr view $0 --json number,title,body,headRefName,isDraft,comments`

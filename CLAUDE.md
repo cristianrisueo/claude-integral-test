@@ -51,6 +51,7 @@ Use these verbs. Never call the underlying tool directly when a verb exists.
 
 - Never commit or push on `main`. It changes only through squash-merged PRs.
 - Branches are `propose/<id>` for a proposal and `feat/<id>-<NN>` for a slice.
+- Harness maintenance (`.claude/`, `CLAUDE.md`, `Makefile`, `tools/`, workflows) goes on `chore/*` branches: CI runs on them, the audit does not.
 - Use Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `ci:`, `refactor:`). The PR title becomes the squash commit and follows the same convention.
 - Never force push. Never merge except through `/ship`.
 
