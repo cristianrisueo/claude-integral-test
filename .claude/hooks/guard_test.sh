@@ -30,7 +30,7 @@ fail=0
 
 # run <G-row> <block|allow> <branch> <label> <payload>
 run() {
-  local row=$1 want=$2 branch=$3 label=$4 payload=$5 code
+  local row=$1 want=$2 branch=$3 label=${4//$'\n'/ ⏎ } payload=$5 code
   g switch -q "$branch"
   if [[ ${JQ_MISSING:-} == 1 ]]; then
     CLAUDE_PROJECT_DIR=$repo PATH=/nonexistent /bin/bash "$guard" <<<"$payload" >/dev/null 2>&1
@@ -138,6 +138,13 @@ bash_case G6 block $F 'rm -rf api/migrations'
 file_case G6 allow $F Write api/migrations/000002_users.up.sql
 bash_case G6 allow $F 'cat api/migrations/000001_init.up.sql'
 bash_case G6 allow $F "echo 'CREATE INDEX x;' > api/migrations/000002_index.up.sql"
+
+# Heredoc bodies are data (PR bodies, audit comments), unless a shell reads them.
+bash_case G4 allow $F $'gh pr comment 7 --body-file - <<\'EOF\'\nNever `git push --force` or `terraform apply`.\nrm -rf openspec/changes/demo\nEOF'
+bash_case G3 allow main $'gh pr create --title t --body-file - <<EOF\ngit commit -m x\nEOF'
+bash_case G2 block main $'bash <<\'EOF\'\nterraform apply -auto-approve\nEOF'
+bash_case G4 block $F $'cat <<\'EOF\' >/dev/null\nnotes\nEOF\ngit push --force origin feat/demo-01'
+bash_case G4 block $F $'cat <<<notes\ngit push -f'
 
 # G7: fail closed
 run G7 block $F 'Edit without file_path' '{"tool_name":"Edit","tool_input":{"old_string":"a","new_string":"b"}}'

@@ -262,8 +262,36 @@ check_segment() {
   esac
 }
 
+# Heredoc bodies are data (PR bodies, comments), not commands, so they are
+# dropped before the checks, unless a shell reads them (bash <<EOF).
+# Here-strings (<<<) are not heredocs and are left alone.
+strip_heredocs() {
+  local line term="" dash="" keep=0 spec cmp
+  while IFS= read -r line || [[ -n $line ]]; do
+    if [[ -n $term ]]; then
+      cmp=$line
+      [[ -n $dash ]] && cmp=${cmp#"${cmp%%[!$'\t']*}"}
+      if [[ $cmp == "$term" ]]; then
+        term=""
+      elif ((keep)); then
+        printf '%s\n' "$line"
+      fi
+      continue
+    fi
+    printf '%s\n' "$line"
+    spec=$(printf '%s\n' "$line" | sed -nE "s/(^|.*[^<])<<(-?)[[:space:]]*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?.*/\2 \3/p")
+    if [[ -n $spec ]]; then
+      dash=${spec% *}
+      term=${spec#* }
+      keep=0
+      matches "${line%%<<*}" '(^|[^[:alnum:]_.-])(ba|z|da|k)?sh[[:space:]]*$|(^|[^[:alnum:]_.-])(ba|z|da|k)?sh[[:space:]]+(-[a-z]+[[:space:]]*)*$' && keep=1
+    fi
+  done <<<"$1"
+}
+
 check_bash() {
-  local cmd=$1 seg t
+  local cmd seg t
+  cmd=$(strip_heredocs "$1")
   # Pass 1 splits on ; & | and newlines. Pass 2 also splits on ( ) and
   # backticks to reach commands inside subshells and substitutions.
   for pass in ';&|' ';&|()`'; do
