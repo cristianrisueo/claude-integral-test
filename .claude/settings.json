@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "defaultMode": "plan",
+    "disableBypassPermissionsMode": "disable",
     "allow": [
       "Bash(make *)",
       "Bash(go test *)",
@@ -65,7 +66,7 @@
   },
   "sandbox": {
     "enabled": true,
-    "excludedCommands": ["gh *"],
+    "excludedCommands": ["gh *", "terraform init *", "terraform validate*"],
     "filesystem": {
       "allowWrite": ["~/Library/Caches/go-build", "~/.cache/go-build", "~/go/pkg/mod"]
     }
