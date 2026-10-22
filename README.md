@@ -17,20 +17,20 @@ The application folders are created by the changes that build them. Until then, 
 
 ## What's in this repository
 
-| Folder      | What it holds                                                                 | Who uses it                     |
-| ----------- | ----------------------------------------------------------------------------- | ------------------------------- |
-| `.claude/`  | Claude Code settings, skills, hooks and templates                             | Claude, in every session        |
-| `.github/`  | The CI workflow and the pull request template                                 | GitHub Actions, every PR        |
-| `openspec/` | What the app does today, and the changes in progress                          | The owner and Claude            |
-| `tools/`    | Deterministic checks: spec lint, change guard, plan guard                     | `make`, Claude's hooks and CI   |
-| `src/`      | The application: backend, frontend, end-to-end tests and infrastructure       | Created by later changes        |
+| Folder      | What it holds                                                           | Who uses it                                                                   |
+| ----------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `.claude/`  | Claude Code settings, skills, hooks and templates                       | Claude, in every session                                                      |
+| `.github/`  | The CI workflow and the pull request template                           | GitHub Actions, every PR                                                      |
+| `openspec/` | What the app does today, and the changes in progress                    | The owner and Claude                                                          |
+| `tools/`    | Deterministic checks: spec lint, change guard, plan guard               | `make`, Claude's hooks and CI                                                 |
+| `src/`      | The application: backend, frontend, end-to-end tests and infrastructure | Created by later changes; `src/infra/bootstrap/` is applied once by the owner |
 
 `src/` holds four folders, each created by the change that builds it:
 
 - `src/api/`: the Go backend and its database migrations;
 - `src/web/`: the React frontend;
 - `src/e2e/`: the Playwright end-to-end tests;
-- `src/infra/`: the Terraform for AWS.
+- `src/infra/`: the Terraform for AWS. Its `bootstrap/` folder already exists: the one-time setup (state bucket, GitHub OIDC provider, plan and deploy roles) that the owner applies by hand, following its README.
 
 **`.claude/`** holds `settings.json` (permissions, the sandbox and the hooks), the four skills (`/propose`, `/build`, `/audit`, `/ship`), the hooks that block what must never happen (a commit on `main`, a force push, `terraform apply`, wiping the database) and the templates the skills fill in.
 

@@ -28,7 +28,11 @@ check: harness-test ## Harness tests, then gofmt + go vet (src/api), lint + type
 	else echo "skip: src/web/ (does not exist yet)"; fi
 	@if [ -d src/infra ]; then \
 	  echo "check: src/infra/"; \
-	  (cd src/infra && terraform fmt -check -recursive && terraform init -backend=false -input=false >/dev/null && terraform validate); \
+	  terraform -chdir=src/infra fmt -check -recursive; \
+	  for dir in $$(find src/infra -name '*.tf' -not -path '*/.terraform/*' -exec dirname {} \; | sort -u); do \
+	    echo "check: $$dir/"; \
+	    (cd "$$dir" && terraform init -backend=false -input=false >/dev/null && terraform validate); \
+	  done; \
 	else echo "skip: src/infra/ (does not exist yet)"; fi
 
 test: ## go test -race (src/api), npm test (src/web)
