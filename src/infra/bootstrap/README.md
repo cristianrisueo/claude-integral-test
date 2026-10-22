@@ -38,32 +38,13 @@ terraform apply bootstrap.tfplan
 
 Read the plan before applying. It should only create these resources: the bucket and its versioning, encryption, public access block and policy, the OIDC provider, the two roles, their three policy attachments and the inline state policy.
 
-## 3. Move this state into the bucket
+## 3. Move this state into the bucket (done)
 
-Create `backend.tf` in this folder:
-
-```hcl
-terraform {
-  backend "s3" {
-    bucket       = "claude-integral-test-tfstate-685562352363"
-    key          = "bootstrap/terraform.tfstate"
-    region       = "eu-west-1"
-    encrypt      = true
-    use_lockfile = true
-  }
-}
-```
-
-Then:
+The migration is done. The state lives in `s3://claude-integral-test-tfstate-685562352363/bootstrap/terraform.tfstate`, and `backend.tf` in this folder is committed. Later runs only need:
 
 ```sh
-terraform init -migrate-state        # answer "yes" to copy the local state
-terraform plan                       # must say: No changes.
-aws s3 ls s3://claude-integral-test-tfstate-685562352363/bootstrap/
-rm terraform.tfstate terraform.tfstate.backup bootstrap.tfplan
+terraform init        # reads the state from the bucket
 ```
-
-Commit `backend.tf` in a follow-up `chore/*` pull request, so the next `terraform init` here reads the state from the bucket.
 
 ## 4. Give CI the outputs
 
@@ -80,5 +61,5 @@ These are variables, not secrets: role ARNs and a bucket name grant nothing with
 
 ## Later changes
 
-- Change this root by hand the same way: `terraform plan`, read the plan, then `terraform apply`.
+- Change this root by hand the same way: `terraform init`, `terraform plan`, read the plan, then `terraform apply`.
 - The bucket has `prevent_destroy`, so `terraform destroy` fails. Deleting it would lose every state of the project.
