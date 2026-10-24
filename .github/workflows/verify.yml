@@ -1,0 +1,14 @@
+# Stub: not implemented yet.
+name: verify
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo stub
