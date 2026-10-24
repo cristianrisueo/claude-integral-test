@@ -19,3 +19,13 @@ test("GET /api/health answers 200 with database ok", async ({ request }) => {
     version: process.env.EXPECTED_VERSION ?? "dev",
   });
 });
+
+test("GET /api/live answers 200", async ({ request }) => {
+  const response = await request.get("/api/live");
+
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toEqual({
+    status: "ok",
+    version: process.env.EXPECTED_VERSION ?? "dev",
+  });
+});
