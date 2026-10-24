@@ -31,12 +31,15 @@ Use these verbs. Never call the underlying tool directly when a verb exists.
 
 | Verb                    | Runs                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `make check`            | `make harness-test`, then `gofmt -l` + `go vet` (`src/api`), `npm run lint` + `typecheck` (`src/web`), `terraform fmt -check` + `validate` (`src/infra`) |
+| `make check`            | `make harness-test`, then `gofmt -l` + `go vet` (`src/api`), `npm run lint` + `typecheck` (`src/web`)       |
+| `make check-infra`      | `terraform fmt -check`, then `init -backend=false` + `validate` in every `src/infra` folder with `.tf` files (runs outside the sandbox) |
 | `make test`             | `go test -race -count=1 ./...` (`src/api`), `npm test -- --run` (`src/web`)                                   |
 | `make e2e`              | Playwright in `src/e2e/` against the local stack                                                              |
 | `make up` / `make down` | `docker compose up -d --wait` / `docker compose down` (never `-v`)                                            |
 | `make harness-test`     | Tests of the hooks, `change-guard`, `plan-guard` and `spec-lint`                                              |
 | `make spec-lint`        | Lints `openspec/`                                                                                             |
+
+Always run terraform as `terraform init ...` or `terraform validate ...` from inside the folder, never with `-chdir`, so the sandbox exclusions match. Change into the folder with `cd` in its own call first: a call that contains `cd` stays sandboxed.
 
 ## Specs
 

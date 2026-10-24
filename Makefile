@@ -10,12 +10,12 @@ MAKEFLAGS += --no-print-directory
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 COMPOSE_FILE := $(firstword $(wildcard $(ROOT)/docker-compose.yml $(ROOT)/compose.yaml))
 
-.PHONY: help check test e2e up down harness-test spec-lint
+.PHONY: help check check-infra test e2e up down harness-test spec-lint
 
 help: ## List the targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  make %-13s %s\n", $$1, $$2}'
 
-check: harness-test ## Harness tests, then gofmt + go vet (src/api), lint + typecheck (src/web), terraform fmt + validate (src/infra)
+check: harness-test ## Harness tests, then gofmt + go vet (src/api), lint + typecheck (src/web)
 	@if [ -d src/api ]; then \
 	  echo "check: src/api/"; \
 	  unformatted="$$(gofmt -l src/api)"; \
@@ -26,11 +26,16 @@ check: harness-test ## Harness tests, then gofmt + go vet (src/api), lint + type
 	  echo "check: src/web/"; \
 	  (cd src/web && npm run lint && npm run typecheck); \
 	else echo "skip: src/web/ (does not exist yet)"; fi
+
+# Separate from check because terraform cannot run inside the macOS sandbox
+# (TLS verification and provider plugins fail): "make check-infra" is in
+# sandbox.excludedCommands, "make check" is not.
+check-infra: ## terraform fmt -check, then init -backend=false + validate in every src/infra folder with .tf files
 	@if [ -d src/infra ]; then \
-	  echo "check: src/infra/"; \
+	  echo "check-infra: src/infra/"; \
 	  terraform -chdir=src/infra fmt -check -recursive; \
 	  for dir in $$(find src/infra -name '*.tf' -not -path '*/.terraform/*' -exec dirname {} \; | sort -u); do \
-	    echo "check: $$dir/"; \
+	    echo "check-infra: $$dir/"; \
 	    (cd "$$dir" && terraform init -backend=false -input=false >/dev/null && terraform validate); \
 	  done; \
 	else echo "skip: src/infra/ (does not exist yet)"; fi

@@ -9,7 +9,7 @@ This Terraform root creates what CI/CD needs before any other infrastructure exi
 | Plan role | `claude-integral-plan`: `ReadOnlyAccess`, plus read on the state objects, write only on lock files. Trusted for pull requests and `main` |
 | Deploy role | `claude-integral-deploy`: `AdministratorAccess`. Trusted only for the `production` environment (the trade-off is explained in `github-oidc.tf`) |
 
-Cristian runs it once from his machine. CI validates it (`make check`) but never plans or applies it, and `plan-guard` never sees it. Claude never runs `plan` or `apply` here.
+Cristian runs it once from his machine. CI validates it (`make check-infra`) but never plans or applies it, and `plan-guard` never sees it. Claude never runs `plan` or `apply` here.
 
 ## Before you start
 

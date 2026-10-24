@@ -66,7 +66,7 @@
   },
   "sandbox": {
     "enabled": true,
-    "excludedCommands": ["gh *", "terraform init *", "terraform validate*"],
+    "excludedCommands": ["gh *", "terraform init *", "terraform validate*", "make check-infra"],
     "filesystem": {
       "allowWrite": ["~/Library/Caches/go-build", "~/.cache/go-build", "~/go/pkg/mod"]
     }

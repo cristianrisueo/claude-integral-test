@@ -61,7 +61,7 @@ Present the plan with `ExitPlanMode`: the tests you will write for each acceptan
 
 ### 6. Verify
 
-- Run `make check` and `make test`, plus `make e2e` when the slice touches the UI or the API.
+- Run `make check` and `make test`, plus `make check-infra` when the slice touches `src/infra/`, and `make e2e` when the slice touches the UI or the API.
 - Everything must be green. Keep every command and its result for the PR description.
 
 ### 7. Archive (last slice only)
