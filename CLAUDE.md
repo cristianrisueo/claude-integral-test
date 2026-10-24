@@ -18,7 +18,7 @@ Every piece of work is a change in `openspec/changes/<id>/`, built one slice at 
 | ------------------------ | ------------------------ | --------------------------------------------------------------------------------------------- |
 | `/propose <id> [idea]`   | locally, on `main`       | Interviews Cristian, writes the change, opens the `propose/<id>` PR                           |
 | `/build <id> <NN>`       | locally                  | Builds one slice tests-first and opens `feat/<id>-<NN>`; rerun for the one fix round          |
-| `/audit <pr>`            | in CI only, never locally | Read-only verdict comment on `feat/*` PRs                                                     |
+| `/audit <pr>`            | in CI only (`audit.yml`, after CI), never locally | Read-only verdict comment on `feat/*` PRs                                     |
 | `/ship <pr>`             | locally                  | Waits for checks (and the verdict on `feat/*`), shows the slice report, the proposal or a `chore/*` PR's description, asks Cristian, squash-merges |
 | `/retro <id>`            | locally, on `main`, after the change is archived | Read-only retrospective: writes `docs/retros/<id>.md`, opens the `chore/retro-<id>` PR, never changes the harness |
 
@@ -36,7 +36,7 @@ Use these verbs. Never call the underlying tool directly when a verb exists.
 | `make check-infra`      | `terraform fmt -check`, then `init -backend=false` + `validate` in every `src/infra` folder with `.tf` files, then `terraform test` in every one with a `tests/` directory (runs outside the sandbox) |
 | `make test`             | `go test -race -count=1 ./...` (`src/api`), `npm test -- --run` (`src/web`)                                   |
 | `make e2e`              | Playwright in `src/e2e/` against the local stack                                                              |
-| `make up` / `make down` | `docker compose up -d --wait` / `docker compose down` (never `-v`)                                            |
+| `make up` / `make down` | `docker compose up -d --build --wait` / `docker compose down` (never `-v`)                                    |
 | `make harness-test`     | Tests of the hooks, `change-guard`, `plan-guard` and `spec-lint`                                              |
 | `make spec-lint`        | Lints `openspec/`                                                                                             |
 
@@ -55,7 +55,7 @@ Always run terraform as `terraform init ...` or `terraform validate ...` from in
 - Never commit or push on `main`. It changes only through squash-merged PRs.
 - Branches are `propose/<id>` for a proposal and `feat/<id>-<NN>` for a slice.
 - Harness maintenance (`.claude/`, `CLAUDE.md`, `Makefile`, `tools/`, and `.github/` except what a change may edit, below) goes on `chore/*` branches. CI runs on them; the audit does not.
-- A change may edit `.github/workflows/cd.yml`, `destroy.yml`, `verify.yml` and the `checks`, `e2e` and `terraform` jobs of `ci.yml`. It never edits the harness jobs of `ci.yml` (`harness`, `spec`, `audit`), the pull request template, or anything else under `.github/`. `/audit` checks this from the diff.
+- A change may edit `.github/workflows/cd.yml`, `destroy.yml`, `verify.yml` and the `checks`, `e2e` and `terraform` jobs of `ci.yml`. It never edits the harness jobs of `ci.yml` (`harness`, `spec`), `audit.yml`, the pull request template, or anything else under `.github/`. `/audit` checks this from the diff.
 - Use Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `ci:`, `refactor:`). The PR title becomes the squash commit and follows the same convention.
 - Never force push. Never merge except through `/ship`.
 

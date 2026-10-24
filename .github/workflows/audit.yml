@@ -1,0 +1,179 @@
+# The read-only Claude audit of feat/* PRs (/audit). It is a separate workflow
+# so that it always runs the version on main: workflow_run and
+# workflow_dispatch both run the file on the default branch, so a PR can never
+# change the auditor (claude-code-action also skips, green, when the running
+# workflow file differs from main's). It reports to the PR as the "audit"
+# commit status on the head commit: pending while it runs, success once a
+# verdict comment is posted (whatever the verdict: /ship is the gate), failure
+# when no verdict was posted. To audit a PR by hand:
+#   gh workflow run audit.yml -f pr-number=<n>
+name: Audit
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: ["feat/**"]
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: Number of the feat/* pull request to audit
+        type: number
+        required: true
+
+permissions:
+  contents: read
+
+# Never two audits of one PR at once: each counts the previous audit comments
+# to know its round.
+concurrency:
+  group: audit-${{ github.event.workflow_run.pull_requests[0].number || inputs.pr-number }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: audit
+    # workflow_run gets secrets even for fork PRs, so only PRs whose head is in
+    # this repository, after a successful CI run. Drafts are skipped in the gate.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      || (github.event_name == 'workflow_run'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'pull_request'
+          && startsWith(github.event.workflow_run.head_branch, 'feat/')
+          && github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+      statuses: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Gate
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_PR: ${{ inputs.pr-number }}
+          RUN_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # A PR that is not auditable is an error when asked for by hand, and
+          # a quiet skip after CI.
+          skip() {
+            if [ "$EVENT" = workflow_dispatch ]; then
+              echo "::error::$1"
+              exit 1
+            fi
+            echo "::notice::Audit skipped: $1"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          if [ "$EVENT" = workflow_dispatch ]; then
+            pr=$INPUT_PR
+          else
+            pr=$RUN_PR
+            if [ -z "$pr" ]; then
+              pr=$(gh pr list --head "$RUN_HEAD_BRANCH" --state open --json number --jq '.[0].number // empty')
+            fi
+          fi
+          if ! [[ $pr =~ ^[0-9]+$ ]]; then
+            echo "::error::No pull request found for this run (got '$pr')."
+            exit 1
+          fi
+
+          info=$(gh pr view "$pr" --json headRefName,isDraft,headRefOid,headRepository,headRepositoryOwner,comments)
+          head_ref=$(jq -r .headRefName <<<"$info")
+          head_repo=$(jq -r '"\(.headRepositoryOwner.login)/\(.headRepository.name)"' <<<"$info")
+          sha=$(jq -r .headRefOid <<<"$info")
+
+          [[ $head_ref == feat/* ]] || skip "PR #$pr is $head_ref, not a feat/* branch."
+          [ "$head_repo" = "$GH_REPO" ] || skip "PR #$pr comes from $head_repo, not from $GH_REPO."
+          [ "$(jq -r .isDraft <<<"$info")" = false ] || skip "PR #$pr is a draft."
+          if [ "$EVENT" = workflow_run ] && [ "$sha" != "$RUN_HEAD_SHA" ]; then
+            skip "PR #$pr moved on from $RUN_HEAD_SHA to $sha; its newer CI run triggers the audit."
+          fi
+
+          before=$(jq '[.comments[] | select(.body | startswith("<!-- harness:audit -->"))] | length' <<<"$info")
+          {
+            echo "run=true"
+            echo "pr=$pr"
+            echo "sha=$sha"
+            echo "before=$before"
+          } >> "$GITHUB_OUTPUT"
+          echo "Auditing PR #$pr at $sha ($before previous audit comments)."
+
+      - name: Mark the audit pending
+        if: steps.gate.outputs.run == 'true'
+        env:
+          SHA: ${{ steps.gate.outputs.sha }}
+        run: |
+          gh api "repos/$GH_REPO/statuses/$SHA" -f state=pending -f context=audit \
+            -f description="Audit running" -f target_url="$RUN_URL" >/dev/null
+
+      # The auditor's own files (CLAUDE.md, .claude/) come from main. The PR's
+      # head is only fetched as the branch pr-head and read through git, never
+      # checked out: Claude Code would load a CLAUDE.md or .claude/skills/ from
+      # a PR checkout in a subfolder as instructions.
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.run == 'true'
+        with:
+          persist-credentials: false
+      - name: Fetch the PR head as pr-head
+        if: steps.gate.outputs.run == 'true'
+        env:
+          PR: ${{ steps.gate.outputs.pr }}
+          SHA: ${{ steps.gate.outputs.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "+refs/pull/$PR/head:refs/heads/pr-head"
+          fetched=$(git rev-parse pr-head)
+          if [ "$fetched" != "$SHA" ]; then
+            echo "::error::refs/pull/$PR/head is $fetched, expected $SHA."
+            exit 1
+          fi
+
+      # The project settings start sessions in plan mode, which blocks
+      # `gh pr comment` in a non-interactive run; dontAsk runs exactly the
+      # allowed tools and denies the rest. The sandbox stays on, with GitHub
+      # allowlisted so gh can reach it.
+      - uses: anthropics/claude-code-action@v1
+        if: steps.gate.outputs.run == 'true'
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "/audit ${{ steps.gate.outputs.pr }}"
+          settings: '{"sandbox": {"network": {"allowedDomains": ["api.github.com", "github.com"]}}}'
+          claude_args: |
+            --model opus
+            --max-turns 40
+            --permission-mode dontAsk
+            --allowedTools "Read" "Glob" "Grep" "Bash(git cat-file *)" "Bash(git ls-tree *)" "Bash(gh pr view *)" "Bash(gh pr diff *)" "Bash(gh pr checks *)" "Bash(gh pr comment *)" "Bash(gh issue list *)" "Bash(gh issue create *)" "Bash(gh label create *)"
+
+      # Whatever happened above (a skip, a failure, a timeout), the audit is
+      # green only if it posted a new verdict comment.
+      - name: Check that a verdict was posted
+        if: always() && steps.gate.outputs.run == 'true'
+        env:
+          PR: ${{ steps.gate.outputs.pr }}
+          SHA: ${{ steps.gate.outputs.sha }}
+          BEFORE: ${{ steps.gate.outputs.before }}
+        run: |
+          audits=$(gh pr view "$PR" --json comments --jq '[.comments[] | select(.body | startswith("<!-- harness:audit -->"))]')
+          if (( $(jq length <<<"$audits") > BEFORE )); then
+            verdict=$(jq -r '.[-1].body | split("\n")[] | select(startswith("## Audit: ")) | ltrimstr("## Audit: ")' <<<"$audits" | head -n 1)
+            gh api "repos/$GH_REPO/statuses/$SHA" -f state=success -f context=audit \
+              -f description="${verdict:-Verdict posted}" -f target_url="$RUN_URL" >/dev/null
+            echo "Audit verdict: ${verdict:-unknown}"
+          else
+            gh api "repos/$GH_REPO/statuses/$SHA" -f state=failure -f context=audit \
+              -f description="No audit verdict was posted" -f target_url="$RUN_URL" >/dev/null
+            echo "::error::No audit verdict was posted on PR #$PR."
+            exit 1
+          fi

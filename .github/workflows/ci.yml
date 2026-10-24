@@ -1,6 +1,7 @@
 # CI for every pull request to main. The job names are stable: harness, spec,
-# checks, e2e and terraform are required status checks on main. The audit job
-# is not a gate (it passes even on CHANGES REQUESTED); /ship is the gate.
+# checks, e2e and terraform are required status checks on main. The audit is
+# not here: audit.yml runs it from main after this workflow succeeds on a
+# feat/* PR, and reports it as the "audit" commit status.
 name: CI
 
 on:
@@ -123,37 +124,3 @@ jobs:
           fi
           echo "skip: src/infra/envs/ (does not exist yet)"
 
-  audit:
-    name: audit
-    needs: [harness, spec, checks, e2e, terraform]
-    # Not for drafts, not for propose/* PRs, never for forks (they get no secrets).
-    if: >-
-      success()
-      && github.event_name == 'pull_request'
-      && !github.event.pull_request.draft
-      && startsWith(github.head_ref, 'feat/')
-      && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v7
-      # The project settings start sessions in plan mode, which blocks
-      # `gh pr comment` in a non-interactive run; dontAsk runs exactly the
-      # allowed tools and denies the rest. The sandbox stays on, with GitHub
-      # allowlisted so gh can reach it.
-      - uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: "/audit ${{ github.event.pull_request.number }}"
-          settings: '{"sandbox": {"network": {"allowedDomains": ["api.github.com", "github.com"]}}}'
-          claude_args: |
-            --model opus
-            --max-turns 40
-            --permission-mode dontAsk
-            --allowedTools "Read" "Glob" "Grep" "Bash(gh pr view *)" "Bash(gh pr diff *)" "Bash(gh pr checks *)" "Bash(gh pr comment *)" "Bash(gh issue list *)" "Bash(gh issue create *)" "Bash(gh label create *)"
