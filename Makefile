@@ -32,17 +32,24 @@ check: harness-test ## Harness tests, then gofmt + go vet (src/api), lint + type
 # sandbox.excludedCommands, "make check" is not. TF_DATA_DIR keeps validation
 # away from a folder's own .terraform/, whose initialized backend (the S3
 # state of bootstrap/) would need AWS credentials even with -backend=false.
-# It runs outside the sandbox and never needs AWS, so it gets no credentials.
-check-infra: ## terraform fmt -check, then init -backend=false + validate in every src/infra folder with .tf files
+# It runs outside the sandbox and never needs AWS, so it gets no credentials:
+# terraform test runs against mock providers only. The explicit "|| exit 1"s
+# are needed because macOS ships GNU Make 3.81, which ignores .SHELLFLAGS and
+# so runs this recipe without -e.
+check-infra: ## terraform fmt -check, init -backend=false + validate in every src/infra folder with .tf files, terraform test where tests/ exists
 	@if [ -d src/infra ]; then \
 	  export TF_DATA_DIR=.terraform/check-infra; \
 	  unset AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; \
 	  export AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null; \
 	  echo "check-infra: src/infra/"; \
-	  terraform -chdir=src/infra fmt -check -recursive; \
+	  terraform -chdir=src/infra fmt -check -recursive || exit 1; \
 	  for dir in $$(find src/infra -name '*.tf' -not -path '*/.terraform/*' -exec dirname {} \; | sort -u); do \
 	    echo "check-infra: $$dir/"; \
-	    (cd "$$dir" && terraform init -backend=false -input=false >/dev/null && terraform validate); \
+	    (cd "$$dir" && terraform init -backend=false -input=false >/dev/null && terraform validate) || exit 1; \
+	    if [ -d "$$dir/tests" ]; then \
+	      echo "check-infra: $$dir/ terraform test"; \
+	      (cd "$$dir" && terraform test) || exit 1; \
+	    fi; \
 	  done; \
 	else echo "skip: src/infra/ (does not exist yet)"; fi
 
