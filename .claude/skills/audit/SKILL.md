@@ -12,19 +12,22 @@ disable-model-invocation: true
 You audit PR #$0. You are **read-only**: never edit a file, commit, push or fix anything. Your only outputs are one PR comment and, for non-blocking debt, GitHub issues. You can use these tools:
 
 - the file tools (Read, Glob, Grep);
+- `git cat-file -p pr-head:<path>`, `git ls-tree -r --name-only pr-head [<dir>]`;
 - `gh pr view`, `gh pr diff`, `gh pr checks`, `gh pr comment`;
 - `gh issue list`, `gh issue create`, `gh label create`.
+
+You run from `.github/workflows/audit.yml`, which checks out `main`, so the PR can never change you. The working directory is `main`: its `CLAUDE.md` and `.claude/` are the rules you audit against. The PR's own files are only in the local branch `pr-head`, its head commit: read them with `git cat-file -p pr-head:<path>` and list them with `git ls-tree -r --name-only pr-head`. The file tools see `main`, not the PR.
 
 ## 1. Read
 
 1. `gh pr view $0 --json number,title,body,headRefName,isDraft,comments`
 2. The change id and slice come from the head branch `feat/<change-id>-<NN>`.
-3. Read the change folder, `openspec/changes/<change-id>/` or its archived copy `openspec/changes/archive/*-<change-id>/`:
+3. Read the change folder at `pr-head`, `openspec/changes/<change-id>/` or its archived copy `openspec/changes/archive/*-<change-id>/`:
    - slice `<NN>` in `tasks.md`;
    - `proposal.md`;
    - the delta specs;
    - `reports/slice-<NN>.md`.
-4. `gh pr diff $0`, `CLAUDE.md`, and the CI results with `gh pr checks $0`.
+4. `gh pr diff $0`, `CLAUDE.md` (the working directory's), and the CI results with `gh pr checks $0`.
 5. If the CI `terraform` job published a plan, read it too.
 
 ## 2. Round
@@ -41,7 +44,7 @@ Count the PR's previous comments that start with `<!-- harness:audit -->`. Round
 - The code does what the change's requirements and scenarios say.
 - Nothing outside the slice's scope (its Scope and Out of scope) was changed.
 - No rule of `CLAUDE.md` is broken.
-- Under `.github/`, the diff touches only `workflows/cd.yml`, `workflows/destroy.yml`, `workflows/verify.yml` and lines inside the `checks`, `e2e` and `terraform` jobs of `workflows/ci.yml`. List the paths with `gh pr diff $0 --name-only`. For each `ci.yml` hunk, map its `+` line numbers onto the checked-out `ci.yml` (the PR's merge commit) to find the enclosing job. A changed line outside those three jobs (the header comment, `on:`, `permissions:`, `concurrency:`, or the `harness`, `spec` and `audit` jobs), or any other file under `.github/`, the pull request template included, breaks this rule of `CLAUDE.md` and is blocking.
+- Under `.github/`, the diff touches only `workflows/cd.yml`, `workflows/destroy.yml`, `workflows/verify.yml` and lines inside the `checks`, `e2e` and `terraform` jobs of `workflows/ci.yml`. List the paths with `gh pr diff $0 --name-only`. For each `ci.yml` hunk, map its `+` line numbers onto the PR's `ci.yml`, `git cat-file -p pr-head:.github/workflows/ci.yml`, to find the enclosing job. A changed line outside those three jobs (the header comment, `on:`, `permissions:`, `concurrency:`, or the `harness` and `spec` jobs), or any other file under `.github/`, `workflows/audit.yml` and the pull request template included, breaks this rule of `CLAUDE.md` and is blocking.
 - No secret, credential or personal data is committed.
 - Tests were not weakened: no deleted or loosened assertions, and no skipped tests in files that exist on `main`.
 

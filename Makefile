@@ -69,9 +69,9 @@ e2e: ## Playwright in src/e2e/ against the local stack
 	  (cd src/e2e && npx playwright test); \
 	else echo "skip: src/e2e/ (does not exist yet)"; fi
 
-up: ## Start the local stack (docker compose up -d --wait)
+up: ## Start the local stack, rebuilding its images (docker compose up -d --build --wait)
 	@if [ -n "$(COMPOSE_FILE)" ]; then \
-	  docker compose -f "$(COMPOSE_FILE)" up -d --wait; \
+	  docker compose -f "$(COMPOSE_FILE)" up -d --build --wait; \
 	else echo "skip: docker-compose.yml (does not exist yet)"; fi
 
 down: ## Stop the local stack, keeping its volumes (never -v)
