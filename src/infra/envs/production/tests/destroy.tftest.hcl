@@ -2,7 +2,9 @@
 # inside, and nothing AWS keeps reserved blocks a re-create. Mocked provider:
 # no AWS call, no credentials.
 
-mock_provider "aws" {}
+mock_provider "aws" {
+  source = "./tests/mocks"
+}
 
 run "database_is_destroyable" {
   command = apply
