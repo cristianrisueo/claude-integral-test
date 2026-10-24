@@ -38,23 +38,11 @@ Decisions made on Cristian's behalf:
 - **The plan file is published before plan-guard runs,** so a rejected plan can still be read.
 - **The provider lock file is the same as the bootstrap's.** It already holds the hashes for every platform, so CI and your Mac verify the same provider.
 
-## Blocked: CI cannot assume the plan role
+## The first CI runs failed on the login, and what fixed it
 
-The `terraform` job stops at its login step, before any Terraform runs. AWS answers `Not authorized to perform sts:AssumeRoleWithWebIdentity`.
+The first two runs of the `terraform` check stopped at the AWS login: `Not authorized to perform sts:AssumeRoleWithWebIdentity`. Nothing in this slice was wrong. The repository uses GitHub's immutable subject claims, so GitHub names it by its IDs (`repo:cristianrisueo@6864512/claude-integral-test@1428727824:pull_request`), while the plan role trusted only the name form.
 
-The cause is outside this slice. The repository uses GitHub's *immutable subject claims*: `gh api repos/cristianrisueo/claude-integral-test/actions/oidc/customization/sub` shows `"use_immutable_subject": true`. GitHub's login token therefore names the repository by its IDs:
-
-- what GitHub sends: `repo:cristianrisueo@6864512/claude-integral-test@1428727824:pull_request`
-- what the plan role trusts (`src/infra/bootstrap/github-oidc.tf`): `repo:cristianrisueo/claude-integral-test:pull_request`
-
-The deploy role trusts `repo:cristianrisueo/claude-integral-test:environment:production`, so it will fail the same way once slices 05 and 06 use it.
-
-Fixing it means one of two things, and both are your call:
-
-- **Change the bootstrap trust** to the subjects GitHub sends now. You apply that by hand, and it sits outside this change (its proposal puts `src/infra/bootstrap/` out of scope).
-- **Turn off immutable subjects for the repository**, so GitHub sends the names the roles already trust.
-
-Once one is done, re-run the `terraform` check of this PR. AC6 and AC7 then get their real results. No code in this slice needs to change.
+PR #15 (`chore/oidc-subjects`, outside this change) made both roles trust both forms, and you applied it by hand. The failed check was then re-run with no change to this slice's code. The deploy role needed the same fix, and it has it, so slices 05 and 06 are not affected.
 
 ## How we checked it
 
@@ -65,12 +53,12 @@ Once one is done, re-run the `terraform` check of this PR. AC6 and AC7 then get 
 | AC3: database not public, only the API on 5432, subnets with no route to the gateway | `database_is_isolated` in `tests/network.tftest.hcl`, via `make check-infra` | pass |
 | AC4: API only from the load balancer on 8080; load balancer only from CloudFront's prefix list | `edge_is_isolated` in `tests/network.tftest.hcl`, via `make check-infra` | pass |
 | AC5: format, validate and Terraform tests pass | `make check-infra` | pass: both folders valid, 4 passed, 0 failed |
-| AC6: the PR plans with the read-only role, plan-guard ok, plan published | the `terraform` check of this PR ([run 40102222773](https://github.com/cristianrisueo/claude-integral-test/actions/runs/40102222773/job/120896543986)) | **blocked**: AWS refuses the plan role (`Not authorized to perform sts:AssumeRoleWithWebIdentity`); see "Blocked" below |
-| AC7: the plan manages no bootstrap resource | `grep -cE 'openid_connect_provider\|claude-integral-(plan\|deploy)\|tfstate-685562352363' plan.txt` | **blocked**: no plan, because of AC6 |
+| AC6: the PR plans with the read-only role, plan-guard ok, plan published | the `terraform` check of this PR ([run 40102537505](https://github.com/cristianrisueo/claude-integral-test/actions/runs/40102537505/job/120901176657)); `gh run download 40102537505 -n terraform-plan` | pass: the job assumed the plan role; `Plan: 19 to add, 0 to change, 0 to destroy.`; `plan-guard: ok, no resource is deleted or replaced`; the artifact holds `plan.txt` |
+| AC7: the plan manages no bootstrap resource | `grep -cE 'openid_connect_provider\|claude-integral-(plan\|deploy)\|tfstate-685562352363' plan.txt` on that artifact | pass: prints `0` |
 | AC8: a plan that deletes or replaces fails the job | `make harness-test` (`plan-guard_test.sh`), and the plan-guard step in `ci.yml` has no `continue-on-error` | pass: 4 passed, 0 failed; no `continue-on-error` |
 
 ## Check it yourself
 
 1. `make check-infra` — you should see `Success! 4 passed, 0 failed.`
 2. `gh pr checks <pr>` — the `terraform` check is green; its log ends with `plan-guard: ok, no resource is deleted or replaced`.
-3. `gh run download <run-id> -n terraform-plan && grep -c 'will be created' plan.txt` — a count of resources to create, and nothing to change or destroy (`grep 'to destroy' plan.txt` shows `0 to destroy`).
+3. `gh run download 40102537505 -n terraform-plan && grep '^Plan:' plan.txt` — you should see `Plan: 19 to add, 0 to change, 0 to destroy.`
