@@ -29,9 +29,12 @@ check: harness-test ## Harness tests, then gofmt + go vet (src/api), lint + type
 
 # Separate from check because terraform cannot run inside the macOS sandbox
 # (TLS verification and provider plugins fail): "make check-infra" is in
-# sandbox.excludedCommands, "make check" is not.
+# sandbox.excludedCommands, "make check" is not. TF_DATA_DIR keeps validation
+# away from a folder's own .terraform/, whose initialized backend (the S3
+# state of bootstrap/) would need AWS credentials even with -backend=false.
 check-infra: ## terraform fmt -check, then init -backend=false + validate in every src/infra folder with .tf files
 	@if [ -d src/infra ]; then \
+	  export TF_DATA_DIR=.terraform/check-infra; \
 	  echo "check-infra: src/infra/"; \
 	  terraform -chdir=src/infra fmt -check -recursive; \
 	  for dir in $$(find src/infra -name '*.tf' -not -path '*/.terraform/*' -exec dirname {} \; | sort -u); do \
