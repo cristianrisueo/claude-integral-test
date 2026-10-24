@@ -51,10 +51,10 @@ Things later slices should know:
 | AC5: the load balancer has no deletion protection, and this root manages the log group | `edge_is_destroyable` in `tests/destroy.tftest.hcl`, via `make check-infra` | pass |
 | AC6: the outputs CD needs exist | `outputs_for_cd` in `tests/compute.tftest.hcl`, via `make check-infra` | pass |
 | AC7: format, validate and every Terraform test pass | `make check-infra` | pass: both folders valid, 10 passed, 0 failed |
-| AC8: the plan of this PR deletes and replaces nothing | the `terraform` check of this PR: `gh pr checks <pr>` | see the PR's `terraform` check: it must be green with `plan-guard: ok` |
+| AC8: the plan of this PR deletes and replaces nothing | the `terraform` check of PR #18 ([run 40106178305](https://github.com/cristianrisueo/claude-integral-test/actions/runs/40106178305/job/120908217926)): `gh pr checks 18` | pass: `Plan: 35 to add, 0 to change, 0 to destroy.`; `plan-guard: ok, no resource is deleted or replaced` |
 
 ## Check it yourself
 
 1. `make check-infra` — you should see `Success! 10 passed, 0 failed.`
-2. `gh pr checks <pr>` — the `terraform` check is green, and its log ends with `plan-guard: ok, no resource is deleted or replaced`.
-3. `gh run download <run-id> -n terraform-plan && grep '^Plan:' plan.txt` — you should see `0 to change, 0 to destroy`, with more resources to add than slice 03's 19.
+2. `gh pr checks 18` — the `terraform` check is green, and its log ends with `plan-guard: ok, no resource is deleted or replaced`.
+3. `gh run download 40106178305 -n terraform-plan && grep '^Plan:' plan.txt` — you should see `Plan: 35 to add, 0 to change, 0 to destroy.` (slice 03 had 19).
