@@ -3,6 +3,15 @@
 
 locals {
   oidc_host = "token.actions.githubusercontent.com"
+
+  # GitHub names the repository in the subject either by name or, with the
+  # repository's immutable subjects setting on, by owner and repository IDs
+  # (gh api repos/<repo>/actions/oidc/customization/sub). Both exact prefixes
+  # are trusted, so the roles work whichever form GitHub sends.
+  repo_subjects = [
+    "repo:${local.repo}",
+    "repo:cristianrisueo@6864512/claude-integral-test@1428727824",
+  ]
 }
 
 # No thumbprint_list: AWS validates GitHub's certificate against its own
@@ -32,10 +41,12 @@ data "aws_iam_policy_document" "plan_trust" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values = [
-        "repo:${local.repo}:pull_request",
-        "repo:${local.repo}:ref:refs/heads/main",
-      ]
+      values = flatten([
+        for prefix in local.repo_subjects : [
+          "${prefix}:pull_request",
+          "${prefix}:ref:refs/heads/main",
+        ]
+      ])
     }
   }
 }
@@ -101,7 +112,7 @@ data "aws_iam_policy_document" "deploy_trust" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${local.repo}:environment:production"]
+      values   = [for prefix in local.repo_subjects : "${prefix}:environment:production"]
     }
   }
 }
