@@ -1,0 +1,110 @@
+# Checks the live site: /api/health must answer 200 with database ok and the
+# expected version within 5 minutes, then the end-to-end suite runs against
+# the site. cd.yml calls it with the commit it deployed; run by hand, ECR says
+# what was deployed: the one SHA tag of the :live image. It only reads, with
+# the plan role and no approval. A failure turns the run red; nothing is
+# rolled back.
+name: Verify
+
+on:
+  workflow_call:
+    inputs:
+      expected_version:
+        description: The commit SHA the live API must report.
+        type: string
+        required: true
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# No concurrency group: verify only reads, and cd.yml calls it from inside a
+# run that already holds the production group.
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        # Explicit bash runs with pipefail, so a failing describe-images
+        # fails the pipe into live-version.sh.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: eu-west-1
+      # Keep terraform_version equal to required_version in src/infra/**/versions.tf.
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.3
+          terraform_wrapper: false
+      - name: Read the site from the production state
+        id: site
+        working-directory: src/infra/envs/production
+        run: |
+          terraform init -input=false > /dev/null
+          echo "url=$(terraform output -raw url)" >> "$GITHUB_OUTPUT"
+          echo "repository=$(terraform output -raw ecr_repository_url)" >> "$GITHUB_OUTPUT"
+      # Branch on the input, not on github.event_name: in a called workflow
+      # that is the caller's event, so a dispatched cd.yml would look like a
+      # manual verify.
+      - name: Expected version
+        id: expected
+        env:
+          INPUT: ${{ inputs.expected_version }}
+          REPOSITORY: ${{ steps.site.outputs.repository }}
+        run: |
+          if [ -n "$INPUT" ]; then
+            version=$INPUT
+          else
+            version=$(aws ecr describe-images --repository-name "${REPOSITORY#*/}" --image-ids imageTag=live | src/e2e/scripts/live-version.sh)
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Health
+        env:
+          URL: ${{ steps.site.outputs.url }}
+          EXPECTED: ${{ steps.expected.outputs.version }}
+        run: src/e2e/scripts/check-health.sh "$URL" "$EXPECTED"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: src/e2e/package-lock.json
+      - name: Install e2e dependencies
+        run: npm ci
+        working-directory: src/e2e
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: src/e2e
+      - name: End-to-end suite
+        env:
+          BASE_URL: ${{ steps.site.outputs.url }}
+          EXPECTED_VERSION: ${{ steps.expected.outputs.version }}
+        run: make e2e
+
+      - name: Run summary
+        if: always()
+        env:
+          URL: ${{ steps.site.outputs.url }}
+          EXPECTED: ${{ steps.expected.outputs.version }}
+        run: |
+          live=unreachable
+          if [ -n "$URL" ]; then
+            live=$(curl -s --max-time 10 "$URL/api/health" | jq -r '.version // "unknown"' 2>/dev/null) || live=unreachable
+          fi
+          {
+            echo '## Verify'
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Site | ${URL:-unknown} |"
+            echo "| Live version | ${live:-unreachable} |"
+            echo "| Expected version | ${EXPECTED:-unknown} |"
+          } >> "$GITHUB_STEP_SUMMARY"
