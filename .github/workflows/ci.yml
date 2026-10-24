@@ -100,27 +100,46 @@ jobs:
         if: always()
         run: make down
 
+  # Plans production with the read-only plan role on every pull request. Only
+  # src/infra/envs/production/ is planned here. src/infra/bootstrap/ is
+  # applied once by hand (its README) and must never be planned in CI nor go
+  # through plan-guard; make check-infra (checks job) validates it.
   terraform:
     name: terraform
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: src/infra/envs/production
     steps:
       - uses: actions/checkout@v7
-      # Only src/infra/envs/<env>/ is planned here. src/infra/bootstrap/ is
-      # applied once by hand (its README) and must never be planned in CI nor
-      # go through plan-guard; make check-infra (checks job) validates it.
-      # TODO(bootstrap): when src/infra/envs/ exists, replace this step with:
-      #   - job permissions `id-token: write` and aws-actions/configure-aws-credentials
-      #     assuming the GitHub OIDC role (no stored keys, no secrets here);
-      #   - hashicorp/setup-terraform, then terraform fmt -check, init, validate and
-      #     plan -out=tfplan in each src/infra/envs/<env>/;
-      #   - terraform show -json tfplan > plan.json and tools/plan-guard.sh plan.json;
-      #   - terraform show -no-color tfplan > plan.txt, published with
-      #     actions/upload-artifact as "terraform-plan" for the audit.
-      - name: Plan
+      # OIDC: short-lived credentials, no stored keys. The role only reads,
+      # plus the state lock file.
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: eu-west-1
+      # Keep terraform_version equal to required_version in src/infra/**/versions.tf.
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.3
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - run: terraform init -input=false
+      - run: terraform validate
+      - run: terraform plan -input=false -lock-timeout=5m -out=production.tfplan
+      - name: Export the plan
         run: |
-          if [ -d src/infra/envs ]; then
-            echo "src/infra/envs/ exists but this job is not wired yet: see TODO(bootstrap) in ci.yml" >&2
-            exit 1
-          fi
-          echo "skip: src/infra/envs/ (does not exist yet)"
+          terraform show -no-color production.tfplan > plan.txt
+          terraform show -json production.tfplan > plan.json
+      # Published before plan-guard, so a rejected plan can still be read.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: terraform-plan
+          path: src/infra/envs/production/plan.txt
+          if-no-files-found: error
+      - name: plan-guard
+        run: $GITHUB_WORKSPACE/tools/plan-guard.sh plan.json
 
