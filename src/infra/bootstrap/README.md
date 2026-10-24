@@ -6,8 +6,8 @@ This Terraform root creates what CI/CD needs before any other infrastructure exi
 | --- | --- |
 | State bucket | `claude-integral-test-tfstate-685562352363`, with versioning, SSE-S3, public access blocked, TLS required and `prevent_destroy` |
 | GitHub OIDC provider | `token.actions.githubusercontent.com`, audience `sts.amazonaws.com` |
-| Plan role | `claude-integral-plan`: `ReadOnlyAccess`, plus read on the state objects, write only on lock files. Trusted for pull requests and `main` |
-| Deploy role | `claude-integral-deploy`: `AdministratorAccess`. Trusted only for the `production` environment (the trade-off is explained in `github-oidc.tf`) |
+| Plan role | `claude-integral-plan`: `ReadOnlyAccess`, plus read on the state objects, write only on lock files. Trusted for pull requests and `main`, with the repository named either by name or by its immutable IDs |
+| Deploy role | `claude-integral-deploy`: `AdministratorAccess`. Trusted only for the `production` environment, in both subject forms (the trade-off is explained in `github-oidc.tf`) |
 
 Cristian runs it once from his machine. CI validates it (`make check-infra`) but never plans or applies it, and `plan-guard` never sees it. Claude never runs `plan` or `apply` here.
 
