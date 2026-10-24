@@ -1,0 +1,105 @@
+# Destroys production on demand. The plan job builds the destroy plan with the
+# read-only plan role; the destroy job waits for Cristian's approval in the
+# production environment, applies exactly that plan, then proves the state is
+# empty and the bootstrap state bucket survived. Only src/infra/envs/production/
+# is touched: src/infra/bootstrap/ is never planned or applied here.
+name: Destroy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Shared with cd.yml: one production run at a time. A run in progress, even
+# one waiting for approval, is never cancelled; the next one queues.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: src/infra/envs/production
+    steps:
+      - uses: actions/checkout@v7
+      # OIDC: short-lived credentials, no stored keys. The role only reads,
+      # plus the state lock file.
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: eu-west-1
+      # Keep terraform_version equal to required_version in src/infra/**/versions.tf.
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.3
+          terraform_wrapper: false
+      - run: terraform init -input=false
+      - run: terraform plan -destroy -input=false -lock-timeout=5m -out=destroy.tfplan
+      - name: Show the plan in the run summary
+        run: |
+          {
+            echo '## Destroy plan'
+            echo
+            echo '```'
+            terraform show -no-color destroy.tfplan
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # The destroy job applies this exact file, so what Cristian approves is
+      # what runs.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: destroy-plan
+          path: src/infra/envs/production/destroy.tfplan
+          if-no-files-found: error
+          retention-days: 1
+
+  destroy:
+    name: destroy
+    needs: plan
+    runs-on: ubuntu-latest
+    # The production environment has required reviewers, so the job starts
+    # only after Cristian approves.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: src/infra/envs/production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+      # Keep terraform_version equal to required_version in src/infra/**/versions.tf.
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.3
+          terraform_wrapper: false
+      - run: terraform init -input=false
+      - uses: actions/download-artifact@v8
+        with:
+          name: destroy-plan
+          path: src/infra/envs/production
+      # Terraform refuses a saved plan whose state has changed since it was made.
+      - run: terraform apply -input=false -lock-timeout=5m destroy.tfplan
+      - name: State is empty
+        run: |
+          left=$(terraform state list)
+          if [ -n "$left" ]; then
+            echo "::error::Production state still holds resources after the destroy"
+            echo "$left"
+            exit 1
+          fi
+      # The bucket of backend.tf, managed by src/infra/bootstrap/. It must
+      # outlive every destroy.
+      - name: State bucket still exists
+        run: aws s3api head-bucket --bucket claude-integral-test-tfstate-685562352363
