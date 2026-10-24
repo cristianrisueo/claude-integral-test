@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -60,6 +61,57 @@ func TestServerStartsWithoutDatabase(t *testing.T) {
 	body, _ := io.ReadAll(res.Body)
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want 503; body %q", res.StatusCode, body)
+	}
+}
+
+// liveness AC4
+func TestLiveWithoutDatabase(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	dbPort := ln.Addr().(*net.TCPAddr).Port
+	ln.Close() // nothing listens on dbPort now
+
+	t.Setenv("PGHOST", "127.0.0.1")
+	t.Setenv("PGPORT", strconv.Itoa(dbPort))
+	t.Setenv("PGUSER", "app")
+	t.Setenv("PGPASSWORD", "app")
+	t.Setenv("PGDATABASE", "app")
+	t.Setenv("PGSSLMODE", "disable")
+
+	srv, cleanup, err := newServer()
+	if err != nil {
+		t.Fatalf("newServer with the database down: %v", err)
+	}
+	t.Cleanup(cleanup)
+
+	ln, err = net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- serve(ctx, srv, ln) }()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("serve: %v", err)
+		}
+	})
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	res, err := client.Get("http://" + ln.Addr().String() + "/api/live")
+	if err != nil {
+		t.Fatalf("GET /api/live: %v", err)
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200; body %q", res.StatusCode, body)
+	}
+	if got, want := strings.TrimSpace(string(body)), `{"status":"ok","version":"dev"}`; got != want {
+		t.Errorf("body = %q, want %q", got, want)
 	}
 }
 

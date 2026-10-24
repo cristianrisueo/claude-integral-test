@@ -71,6 +71,7 @@ func newServer() (*http.Server, func(), error) {
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /api/health", health.Handler(pool, version))
+	mux.Handle("GET /api/live", health.Live(version))
 
 	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	return srv, pool.Close, nil

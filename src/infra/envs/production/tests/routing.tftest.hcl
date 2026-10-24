@@ -1,5 +1,6 @@
 # Single HTTPS origin: CloudFront serves the page from the bucket and sends
-# /api/* to the load balancer, uncached; the load balancer counts 503 as alive.
+# /api/* to the load balancer, uncached; the load balancer checks /api/live,
+# which never asks the database.
 # Mocked provider: no AWS call, no credentials.
 
 mock_provider "aws" {
@@ -71,17 +72,17 @@ run "routes_api_to_alb" {
   }
 }
 
-run "health_check_accepts_503" {
+run "health_check_uses_live" {
   command = apply
 
   assert {
-    condition     = one(aws_lb_target_group.api.health_check).path == "/api/health"
-    error_message = "The target group must check /api/health."
+    condition     = one(aws_lb_target_group.api.health_check).path == "/api/live"
+    error_message = "The target group must check /api/live."
   }
 
   assert {
-    condition     = one(aws_lb_target_group.api.health_check).matcher == "200,503"
-    error_message = "The target group must count 200 and 503 as healthy."
+    condition     = one(aws_lb_target_group.api.health_check).matcher == "200"
+    error_message = "The target group must count only 200 as healthy."
   }
 
   assert {
