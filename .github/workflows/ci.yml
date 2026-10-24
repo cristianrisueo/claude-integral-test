@@ -82,9 +82,22 @@ jobs:
           node-version: lts/*
           cache: npm
           cache-dependency-path: src/e2e/package-lock.json
-      # The change that creates src/e2e/ adds its setup here: npm ci, the
-      # Playwright browsers and `make up` for the local stack.
+      - name: Install e2e dependencies
+        if: hashFiles('src/e2e/package-lock.json') != ''
+        run: npm ci
+        working-directory: src/e2e
+      - name: Install Playwright browsers
+        if: hashFiles('src/e2e/package-lock.json') != ''
+        run: npx playwright install --with-deps chromium
+        working-directory: src/e2e
+      - run: make up
       - run: make e2e
+      - name: Compose logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop the stack
+        if: always()
+        run: make down
 
   terraform:
     name: terraform

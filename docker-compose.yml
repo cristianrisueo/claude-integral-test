@@ -1,4 +1,5 @@
 # The local stack: `make up` / `make down` (which keeps the pgdata volume).
+# The page is on http://localhost:3000, with /api/ proxied to the API.
 # The password "app" only works on this machine.
 services:
   db:
@@ -29,6 +30,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  web:
+    build: src/web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
 
 volumes:
   pgdata:
