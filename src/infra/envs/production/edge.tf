@@ -16,8 +16,10 @@ resource "aws_lb" "api" {
   depends_on = [aws_route.internet]
 }
 
-# 503 counts as healthy: the API answers 503 while the database is down, and
-# the page should show that instead of ECS restarting the task in a loop.
+# The check uses /api/live, which only says the process is up and never asks
+# the database, so a database outage never makes ECS replace the tasks; the
+# page still shows it through /api/health. AWS accepts only 200-499 here, so
+# /api/health's 503 could not count as healthy.
 resource "aws_lb_target_group" "api" {
   name        = "${local.name}-api"
   port        = 8080
@@ -28,8 +30,8 @@ resource "aws_lb_target_group" "api" {
   deregistration_delay = 30
 
   health_check {
-    path    = "/api/health"
-    matcher = "200,503"
+    path    = "/api/live"
+    matcher = "200"
   }
 }
 
