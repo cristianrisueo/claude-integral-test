@@ -20,6 +20,7 @@ Every piece of work is a change in `openspec/changes/<id>/`, built one slice at 
 | `/build <id> <NN>`       | locally                  | Builds one slice tests-first and opens `feat/<id>-<NN>`; rerun for the one fix round          |
 | `/audit <pr>`            | in CI only, never locally | Read-only verdict comment on `feat/*` PRs                                                     |
 | `/ship <pr>`             | locally                  | Waits for checks (and the verdict on `feat/*`), shows the slice report, the proposal or a `chore/*` PR's description, asks Cristian, squash-merges |
+| `/retro <id>`            | locally, on `main`, after the change is archived | Read-only retrospective: writes `docs/retros/<id>.md`, opens the `chore/retro-<id>` PR, never changes the harness |
 
 - One slice per session.
 - Work always starts in plan mode: present the plan and wait for approval before editing.
