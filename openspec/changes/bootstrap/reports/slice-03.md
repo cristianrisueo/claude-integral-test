@@ -38,6 +38,24 @@ Decisions made on Cristian's behalf:
 - **The plan file is published before plan-guard runs,** so a rejected plan can still be read.
 - **The provider lock file is the same as the bootstrap's.** It already holds the hashes for every platform, so CI and your Mac verify the same provider.
 
+## Blocked: CI cannot assume the plan role
+
+The `terraform` job stops at its login step, before any Terraform runs. AWS answers `Not authorized to perform sts:AssumeRoleWithWebIdentity`.
+
+The cause is outside this slice. The repository uses GitHub's *immutable subject claims*: `gh api repos/cristianrisueo/claude-integral-test/actions/oidc/customization/sub` shows `"use_immutable_subject": true`. GitHub's login token therefore names the repository by its IDs:
+
+- what GitHub sends: `repo:cristianrisueo@6864512/claude-integral-test@1428727824:pull_request`
+- what the plan role trusts (`src/infra/bootstrap/github-oidc.tf`): `repo:cristianrisueo/claude-integral-test:pull_request`
+
+The deploy role trusts `repo:cristianrisueo/claude-integral-test:environment:production`, so it will fail the same way once slices 05 and 06 use it.
+
+Fixing it means one of two things, and both are your call:
+
+- **Change the bootstrap trust** to the subjects GitHub sends now. You apply that by hand, and it sits outside this change (its proposal puts `src/infra/bootstrap/` out of scope).
+- **Turn off immutable subjects for the repository**, so GitHub sends the names the roles already trust.
+
+Once one is done, re-run the `terraform` check of this PR. AC6 and AC7 then get their real results. No code in this slice needs to change.
+
 ## How we checked it
 
 | Criterion | Test or command | Result |
@@ -47,8 +65,8 @@ Decisions made on Cristian's behalf:
 | AC3: database not public, only the API on 5432, subnets with no route to the gateway | `database_is_isolated` in `tests/network.tftest.hcl`, via `make check-infra` | pass |
 | AC4: API only from the load balancer on 8080; load balancer only from CloudFront's prefix list | `edge_is_isolated` in `tests/network.tftest.hcl`, via `make check-infra` | pass |
 | AC5: format, validate and Terraform tests pass | `make check-infra` | pass: both folders valid, 4 passed, 0 failed |
-| AC6: the PR plans with the read-only role, plan-guard ok, plan published | the `terraform` check of this PR, and `gh run download <run-id> -n terraform-plan` | runs on this PR |
-| AC7: the plan manages no bootstrap resource | `grep -cE 'openid_connect_provider\|claude-integral-(plan\|deploy)\|tfstate-685562352363' plan.txt` | runs on this PR |
+| AC6: the PR plans with the read-only role, plan-guard ok, plan published | the `terraform` check of this PR ([run 40102222773](https://github.com/cristianrisueo/claude-integral-test/actions/runs/40102222773/job/120896543986)) | **blocked**: AWS refuses the plan role (`Not authorized to perform sts:AssumeRoleWithWebIdentity`); see "Blocked" below |
+| AC7: the plan manages no bootstrap resource | `grep -cE 'openid_connect_provider\|claude-integral-(plan\|deploy)\|tfstate-685562352363' plan.txt` | **blocked**: no plan, because of AC6 |
 | AC8: a plan that deletes or replaces fails the job | `make harness-test` (`plan-guard_test.sh`), and the plan-guard step in `ci.yml` has no `continue-on-error` | pass: 4 passed, 0 failed; no `continue-on-error` |
 
 ## Check it yourself
