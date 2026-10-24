@@ -68,4 +68,4 @@ Three things are never left to the model's goodwill: finishing with failing test
 
 ## Commands
 
-Run `make` to list the commands. The main ones are `make check`, `make test`, `make e2e`, `make up` and `make down`.
+Run `make` to list the commands. The main ones are `make check`, `make check-infra`, `make test`, `make e2e`, `make up` and `make down`.
