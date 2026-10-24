@@ -32,9 +32,12 @@ check: harness-test ## Harness tests, then gofmt + go vet (src/api), lint + type
 # sandbox.excludedCommands, "make check" is not. TF_DATA_DIR keeps validation
 # away from a folder's own .terraform/, whose initialized backend (the S3
 # state of bootstrap/) would need AWS credentials even with -backend=false.
+# It runs outside the sandbox and never needs AWS, so it gets no credentials.
 check-infra: ## terraform fmt -check, then init -backend=false + validate in every src/infra folder with .tf files
 	@if [ -d src/infra ]; then \
 	  export TF_DATA_DIR=.terraform/check-infra; \
+	  unset AWS_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; \
+	  export AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null; \
 	  echo "check-infra: src/infra/"; \
 	  terraform -chdir=src/infra fmt -check -recursive; \
 	  for dir in $$(find src/infra -name '*.tf' -not -path '*/.terraform/*' -exec dirname {} \; | sort -u); do \
