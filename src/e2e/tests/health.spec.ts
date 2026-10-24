@@ -7,9 +7,15 @@ test("page shows API and database ok", async ({ page }) => {
   await expect(page.getByText("Database: ok")).toBeVisible();
 });
 
+// A local build reports "dev"; verify.yml sets EXPECTED_VERSION to the
+// deployed commit's SHA.
 test("GET /api/health answers 200 with database ok", async ({ request }) => {
   const response = await request.get("/api/health");
 
   expect(response.status()).toBe(200);
-  expect(await response.json()).toEqual({ status: "ok", database: "ok", version: "dev" });
+  expect(await response.json()).toEqual({
+    status: "ok",
+    database: "ok",
+    version: process.env.EXPECTED_VERSION ?? "dev",
+  });
 });

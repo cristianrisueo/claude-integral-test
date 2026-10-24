@@ -1,14 +1,163 @@
-# Stub: not implemented yet.
-name: cd
+# Deploys production. The plan job plans with the read-only plan role and runs
+# plan-guard, so a deploy never deletes or replaces anything; the deploy job
+# waits for Cristian's approval in the production environment, applies exactly
+# that plan, pushes the API image as :<sha> and :live, rolls the service and
+# publishes the web build; the verify job then checks the live site runs this
+# commit. Only src/infra/envs/production/ is touched: src/infra/bootstrap/ is
+# never planned or applied here.
+name: CD
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/api/**'
+      - 'src/web/**'
+      - 'src/infra/envs/**'
+      - '.github/workflows/cd.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Shared with destroy.yml: one production run at a time. A run in progress,
+# even one waiting for approval, is never cancelled; the next one queues.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
 jobs:
   plan:
+    name: plan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: src/infra/envs/production
     steps:
-      - run: echo stub
+      - uses: actions/checkout@v7
+      # OIDC: short-lived credentials, no stored keys. The role only reads,
+      # plus the state lock file.
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: eu-west-1
+      # Keep terraform_version equal to required_version in src/infra/**/versions.tf.
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.3
+          terraform_wrapper: false
+      - run: terraform init -input=false
+      - run: terraform plan -input=false -lock-timeout=5m -out=production.tfplan
+      - name: Show the plan in the run summary
+        run: |
+          {
+            echo '## Production plan'
+            echo
+            echo '```'
+            terraform show -no-color production.tfplan
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: plan-guard
+        run: |
+          terraform show -json production.tfplan > plan.json
+          "$GITHUB_WORKSPACE/tools/plan-guard.sh" plan.json
+      # The deploy job applies this exact file, so what Cristian approves is
+      # what runs.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: production-plan
+          path: src/infra/envs/production/production.tfplan
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: deploy
+    needs: plan
+    runs-on: ubuntu-latest
+    # The production environment has required reviewers, so the job starts
+    # only after Cristian approves.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+        working-directory: src/infra/envs/production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+      # Keep terraform_version equal to required_version in src/infra/**/versions.tf.
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.3
+          terraform_wrapper: false
+      - run: terraform init -input=false
+      - uses: actions/download-artifact@v8
+        with:
+          name: production-plan
+          path: src/infra/envs/production
+      # Terraform refuses a saved plan whose state has changed since it was made.
+      - run: terraform apply -input=false -lock-timeout=5m production.tfplan
+      - name: Read the outputs
+        id: out
+        run: |
+          for name in ecr_repository_url ecs_cluster ecs_service web_bucket distribution_id; do
+            echo "$name=$(terraform output -raw "$name")" >> "$GITHUB_OUTPUT"
+          done
+
+      # The task definition always runs :live, so pushing it and rolling the
+      # service deploys without a Terraform change. :<sha> is what verify
+      # reads back from ECR on a manual run.
+      - name: Build and push the API image
+        working-directory: src/api
+        env:
+          REPO: ${{ steps.out.outputs.ecr_repository_url }}
+        run: |
+          aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}"
+          docker build --build-arg VERSION=${{ github.sha }} -t "$REPO:${{ github.sha }}" -t "$REPO:live" .
+          docker push "$REPO:${{ github.sha }}"
+          docker push "$REPO:live"
+      # On a deploy from nothing the service already exists, failing to pull
+      # :live; the new deployment is the first one that can start.
+      - name: Roll the API service
+        env:
+          CLUSTER: ${{ steps.out.outputs.ecs_cluster }}
+          SERVICE: ${{ steps.out.outputs.ecs_service }}
+        run: |
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --force-new-deployment > /dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Publish the web build
+        working-directory: src/web
+        env:
+          BUCKET: ${{ steps.out.outputs.web_bucket }}
+          DISTRIBUTION: ${{ steps.out.outputs.distribution_id }}
+        run: |
+          npm ci
+          npm run build
+          aws s3 sync dist "s3://$BUCKET" --delete
+          id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths '/*' --query Invalidation.Id --output text)
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
+
+  # Read-only and without approval: verify.yml uses the plan role.
+  verify:
+    name: verify
+    needs: deploy
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/verify.yml
+    with:
+      expected_version: ${{ github.sha }}
