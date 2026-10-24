@@ -40,16 +40,16 @@ The `plan` job MUST plan with the read-only role, show the plan in the run summa
 The `deploy` job MUST run in the `production` environment, so it starts only after Cristian approves. In order, it SHALL:
 
 1. apply exactly the saved plan;
-2. push the API image tagged with the commit SHA and with `live`;
+2. build the API image with the build argument `VERSION` set to the commit SHA being deployed, and push it tagged with that SHA and with `live`;
 3. roll the ECS service and wait until it is stable;
 4. publish the web build to the bucket and invalidate CloudFront;
-5. call `verify.yml`.
+5. call `verify.yml` with the commit SHA being deployed (`github.sha`) as the expected version.
 
 #### Scenario: Merge that changes the app
 
 - **WHEN** a push to main changes `src/api/`
 - **THEN** the `plan` job runs, and the `deploy` job waits for approval
-- **AND** after approval, the new API version answers `/api/health`
+- **AND** after approval, `/api/health` reports the merged commit's SHA as `version`
 
 #### Scenario: Merge that changes no app code
 
@@ -72,19 +72,25 @@ The `deploy` job MUST run in the `production` environment, so it starts only aft
 `verify.yml` SHALL run as the last job of every `cd.yml` run, and on manual dispatch.
 It SHALL use the read-only role, with no approval.
 It SHALL read the site URL from the production state.
-It MUST require `GET /api/health` to answer 200 with `{"status":"ok","database":"ok"}` within 5 minutes.
+The expected version SHALL be the SHA that `cd.yml` passes in (`github.sha`), or the HEAD commit of main when verify is dispatched by hand.
+It MUST require `GET /api/health` to answer 200 with `"status":"ok"`, `"database":"ok"` and `version` equal to the expected version, within 5 minutes.
 It SHALL then run the end-to-end suite against that URL.
 Any failed check MUST fail the run.
 
 #### Scenario: Healthy site
 
-- **WHEN** verify runs and the site is healthy
-- **THEN** both checks pass, and the run summary shows the site URL
+- **WHEN** verify runs, the site is healthy and reports the expected version
+- **THEN** both checks pass, and the run summary shows the site URL and the live version
 
 #### Scenario: Unhealthy site
 
 - **WHEN** `/api/health` does not answer 200 with database ok within 5 minutes
 - **THEN** the run fails, and nothing is rolled back
+
+#### Scenario: New version never started
+
+- **WHEN** the new task never starts, and the previous version keeps answering `/api/health` with 200 and database ok
+- **THEN** the run fails within 5 minutes, and its summary shows the live and the expected version
 
 ### Requirement: Destroy on demand
 

@@ -4,12 +4,12 @@
 
 **Goal:** `GET /api/health` reports the database on the local stack, served by the image that will ship.
 
-**Requirements:** Health check, Start without the database, Database settings from the environment
+**Requirements:** Health check, Build version, Start without the database, Database settings from the environment
 
 **Scope:**
 
-- The Go module in `src/api/`: `cmd/api` and the health handler in `internal/health`, with `pgx` and `slog`, and their tests.
-- `src/api/Dockerfile`, for linux/amd64, listening on 8080.
+- The Go module in `src/api/`: `cmd/api` and the health handler in `internal/health`, with `pgx` and `slog`, and their tests. The version is a variable set at link time (`-ldflags -X`), `dev` by default.
+- `src/api/Dockerfile`, for linux/amd64, listening on 8080, with the build argument `VERSION` (default `dev`) passed to the link step.
 - `docker-compose.yml` at the repository root, with two services:
   - `db`: PostgreSQL 17, user, password and database `app`, a named volume and a health check;
   - `api`: built from `src/api/`, with the `PG*` variables pointing at `db` and `PGSSLMODE=disable`.
@@ -24,14 +24,16 @@
 
 | ID  | Criterion | Verified by |
 | --- | --------- | ----------- |
-| AC1 | With a database that answers, `GET /api/health` responds 200 `{"status":"ok","database":"ok"}` with `Content-Type: application/json` and `Cache-Control: no-store` | `TestHealthDatabaseReachable` in `src/api/internal/health/health_test.go` |
-| AC2 | With PostgreSQL unreachable (a real pool pointed at a closed port), it responds 503 `{"status":"unavailable","database":"unreachable"}` in under 3 seconds, with no error detail in the body | `TestHealthDatabaseUnreachable` in `src/api/internal/health/health_test.go` |
-| AC3 | Once the database answers again, the next call responds 200 without a restart | `TestHealthRecovers` in `src/api/internal/health/health_test.go` |
-| AC4 | The server starts and listens on 8080 while PostgreSQL is unreachable | `TestServerStartsWithoutDatabase` in `src/api/cmd/api/main_test.go` |
-| AC5 | Connection settings come only from the `PG*` variables | `TestConfigFromEnvironment` in `src/api/cmd/api/main_test.go` |
-| AC6 | On the local stack, the endpoint reports the real database | `make up`, then `curl -si http://localhost:8080/api/health` prints `200` and `{"status":"ok","database":"ok"}` |
-| AC7 | With `db` stopped, the endpoint reports it unreachable | `docker compose stop db`, then `curl -si http://localhost:8080/api/health` prints `503`; then `make up` |
-| AC8 | Format, vet and tests are green | `make check` and `make test` |
+| AC1  | With a database that answers, `GET /api/health` responds 200 `{"status":"ok","database":"ok","version":"dev"}` with `Content-Type: application/json` and `Cache-Control: no-store` | `TestHealthDatabaseReachable` in `src/api/internal/health/health_test.go` |
+| AC2  | With PostgreSQL unreachable (a real pool pointed at a closed port), it responds 503 `{"status":"unavailable","database":"unreachable","version":"dev"}` in under 3 seconds, with no error detail in the body | `TestHealthDatabaseUnreachable` in `src/api/internal/health/health_test.go` |
+| AC3  | The handler reports the version it is given, both on 200 and on 503 | `TestHealthReportsVersion` in `src/api/internal/health/health_test.go` |
+| AC4  | Once the database answers again, the next call responds 200 without a restart | `TestHealthRecovers` in `src/api/internal/health/health_test.go` |
+| AC5  | The server starts and listens on 8080 while PostgreSQL is unreachable | `TestServerStartsWithoutDatabase` in `src/api/cmd/api/main_test.go` |
+| AC6  | Connection settings come only from the `PG*` variables | `TestConfigFromEnvironment` in `src/api/cmd/api/main_test.go` |
+| AC7  | On the local stack, the endpoint reports the real database and the version `dev` | `make up`, then `curl -si http://localhost:8080/api/health` prints `200` and `{"status":"ok","database":"ok","version":"dev"}` |
+| AC8  | With `db` stopped, the endpoint reports it unreachable | `docker compose stop db`, then `curl -si http://localhost:8080/api/health` prints `503`; then `make up` |
+| AC9  | An image built with `VERSION` reports that version | `docker build --build-arg VERSION=abc1234 -t api-version-check src/api`, then `docker run --rm -d -p 18080:8080 api-version-check`, then `curl -s http://localhost:18080/api/health` prints `"version":"abc1234"` (with 503, since no database is set) |
+| AC10 | Format, vet and tests are green | `make check` and `make test` |
 
 ## Slice 02 — Status page and end-to-end suite
 
@@ -64,7 +66,7 @@
 | AC3  | On 503, the page shows "API: ok" and "Database: unreachable" | "shows database unreachable on 503" in `src/web/src/App.test.tsx` |
 | AC4  | On a failed request, the page shows "API: unreachable" and "Database: unknown" | "shows API unreachable when the request fails" in `src/web/src/App.test.tsx` |
 | AC5  | On any other response (for example a 502 HTML page), the page shows "API: unreachable" and "Database: unknown" | "shows API unreachable on an unexpected response" in `src/web/src/App.test.tsx` |
-| AC6  | The `web` service serves the page and proxies the API | `make up`, then `curl -s http://localhost:3000/api/health` prints `{"status":"ok","database":"ok"}`, and `curl -s http://localhost:3000/` prints the page's HTML |
+| AC6  | The `web` service serves the page and proxies the API | `make up`, then `curl -s http://localhost:3000/api/health` prints `{"status":"ok","database":"ok","version":"dev"}`, and `curl -s http://localhost:3000/` prints the page's HTML |
 | AC7  | With `db` stopped, the API answers 503 through `web` | `docker compose stop db`, then `curl -si http://localhost:3000/api/health` prints `503`; then `make up` |
 | AC8  | The suite passes against the local stack | `make e2e`: "page shows API and database ok" and "GET /api/health answers 200 with database ok" in `src/e2e/tests/health.spec.ts` pass |
 | AC9  | The suite targets `BASE_URL` | `BASE_URL=http://localhost:9 make e2e` fails every test with a connection refused on port 9 |
@@ -207,16 +209,19 @@
   - job `plan`: the plan role, `plan -out`, the plan text in the run summary, plan-guard, the saved plan as an artifact;
   - job `deploy`, in environment `production`, with the deploy role:
     1. apply the saved plan;
-    2. build and push the API image as `:<sha>` and `:live`;
+    2. build the API image with `--build-arg VERSION=${{ github.sha }}`, and push it as `:<sha>` and `:live`;
     3. `aws ecs update-service --force-new-deployment`, and wait until the service is stable;
     4. build the web, sync it to the bucket, invalidate CloudFront and wait;
-  - job `verify`, calling `verify.yml`.
+  - job `verify`, calling `verify.yml` with the input `expected_version: ${{ github.sha }}`.
 - `.github/workflows/verify.yml`:
-  - `workflow_call` and `workflow_dispatch`;
+  - `workflow_call`, with the required input `expected_version`, and `workflow_dispatch`;
+  - on dispatch, the expected version is the HEAD commit of main (`git rev-parse origin/main`);
   - the plan role, with the URL from `terraform output -raw url`;
-  - `src/e2e/scripts/check-health.sh`, then `make e2e` with `BASE_URL` set to the URL;
-  - the URL in the run summary.
-- `src/e2e/scripts/check-health.sh`: given a base URL, it retries `GET /api/health` until it answers 200 with database ok, for at most `VERIFY_TIMEOUT` seconds (default 300).
+  - `src/e2e/scripts/check-health.sh` with the URL and the expected version, then `make e2e` with `BASE_URL` set to the URL;
+  - the URL, the live version and the expected version in the run summary.
+- `src/e2e/scripts/check-health.sh`, which takes a base URL and an expected version:
+  - it retries `GET /api/health` until the answer is 200 with database ok and `version` equal to the expected version;
+  - it gives up after `VERIFY_TIMEOUT` seconds (default 300), printing the live and the expected version, and exits non-zero.
 
 **Out of scope:**
 
@@ -231,11 +236,14 @@
 | AC2 | `cd.yml` runs on a push to main that touches the four paths, and on dispatch, and on nothing else | `grep -nA8 '^on:' .github/workflows/cd.yml` shows `push` to `main` with exactly those four paths, and `workflow_dispatch` |
 | AC3 | Only `deploy` runs in `production`, after `plan`, and `plan` runs plan-guard | `grep -nE 'environment:\|needs:\|plan-guard' .github/workflows/cd.yml` |
 | AC4 | `cd.yml` shares the group `production` and never cancels a run in progress | `grep -nA2 '^concurrency:' .github/workflows/cd.yml` shows `group: production` and `cancel-in-progress: false` |
-| AC5 | `verify.yml` can be called by `cd.yml` and dispatched by hand, and `cd.yml` calls it after `deploy` | `grep -nE 'workflow_call\|workflow_dispatch' .github/workflows/verify.yml`, and `grep -n 'verify.yml' .github/workflows/cd.yml` |
-| AC6 | The health check passes on a healthy site | `make up`, then `src/e2e/scripts/check-health.sh http://localhost:3000` exits 0 |
-| AC7 | The health check fails on an unhealthy site within its time limit | `docker compose stop db`, then `VERIFY_TIMEOUT=10 src/e2e/scripts/check-health.sh http://localhost:3000` exits non-zero in about 10 seconds; then `make up` |
-| AC8 | The suite runs against a URL given in `BASE_URL`, as `verify.yml` runs it | `BASE_URL=http://localhost:3000 make e2e` passes |
-| AC9 | CI stays green | `gh pr checks <pr>` |
+| AC5  | `verify.yml` can be called by `cd.yml` and dispatched by hand, and `cd.yml` calls it after `deploy` | `grep -nE 'workflow_call\|workflow_dispatch' .github/workflows/verify.yml`, and `grep -n 'verify.yml' .github/workflows/cd.yml` |
+| AC6  | `cd.yml` builds the image with the commit SHA and passes the same SHA to `verify.yml` as the expected version | `grep -nE 'VERSION=\|expected_version' .github/workflows/cd.yml` shows `VERSION=${{ github.sha }}` in `deploy` and `expected_version: ${{ github.sha }}` in `verify` |
+| AC7  | A manual dispatch of `verify.yml` expects the HEAD commit of main | `grep -nE 'expected_version\|origin/main' .github/workflows/verify.yml` shows the input for `workflow_call` and `git rev-parse origin/main` for `workflow_dispatch` |
+| AC8  | The health check passes on a healthy site running the expected version | `make up`, then `src/e2e/scripts/check-health.sh http://localhost:3000 dev` exits 0 |
+| AC9  | The health check fails on an unhealthy site within its time limit | `docker compose stop db`, then `VERIFY_TIMEOUT=10 src/e2e/scripts/check-health.sh http://localhost:3000 dev` exits non-zero in about 10 seconds; then `make up` |
+| AC10 | The health check fails when a healthy site runs another version, and names both versions | `make up`, then `VERIFY_TIMEOUT=10 src/e2e/scripts/check-health.sh http://localhost:3000 abc1234` exits non-zero in about 10 seconds and prints `dev` as live and `abc1234` as expected |
+| AC11 | The suite runs against a URL given in `BASE_URL`, as `verify.yml` runs it | `BASE_URL=http://localhost:3000 make e2e` passes |
+| AC12 | CI stays green | `gh pr checks <pr>` |
 
 ## Slice 07 — Round trip
 
@@ -267,10 +275,10 @@ Then:
 
 | ID  | Criterion | Verified by |
 | --- | --------- | ----------- |
-| AC1 | The `cd.yml` run from the merge of slice 06 deployed and verified production | `gh run view <run-id>`: `plan`, `deploy` and `verify` succeeded on attempt 1 |
+| AC1 | The `cd.yml` run from the merge of slice 06 deployed and verified production, running that merge commit | `gh run view <run-id>`: `plan`, `deploy` and `verify` succeeded on attempt 1, and the `verify` summary shows a live version equal to the run's head SHA |
 | AC2 | The first destroy deleted all of production in one run, and left the bootstrap intact | `gh run view <run-id> --log`: `destroy` succeeded on attempt 1, the state list is empty and the state bucket exists |
-| AC3 | `cd.yml` from nothing re-created production with no collision and no manual step | `gh run view <run-id>`: every job succeeded on attempt 1 |
-| AC4 | The manual verification passed on the re-created site | `gh run view <run-id>` of `verify.yml`: succeeded on attempt 1 |
+| AC3 | `cd.yml` from nothing re-created production with no collision and no manual step, running the dispatched commit | `gh run view <run-id>`: every job succeeded on attempt 1, and the `verify` summary shows a live version equal to the run's head SHA |
+| AC4 | The manual verification passed on the re-created site, with the HEAD commit of main as the live version | `gh run view <run-id>` of `verify.yml`: succeeded on attempt 1, and its summary shows the live and the expected version equal to `git rev-parse origin/main` |
 | AC5 | The site served the page and the API on one HTTPS address | the summaries of the runs in AC3 and AC4 show the `https://<id>.cloudfront.net` URL, with both checks passed |
 | AC6 | The second destroy left production destroyed and the bootstrap intact | `gh run view <run-id> --log`: `destroy` succeeded on attempt 1, the state list is empty and the state bucket exists |
 | AC7 | This slice changes no workflow or infrastructure code | `git diff --stat origin/main...HEAD -- .github src/infra` prints nothing |

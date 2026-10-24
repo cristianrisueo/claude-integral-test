@@ -14,12 +14,12 @@ It SHALL show exactly one of four states: checking, all ok, database unreachable
 
 #### Scenario: All ok
 
-- **WHEN** the API responds 200 with `{"status":"ok","database":"ok"}`
+- **WHEN** the API responds 200 with `"status":"ok"` and `"database":"ok"`
 - **THEN** the page shows "API: ok" and "Database: ok"
 
 #### Scenario: Database unreachable
 
-- **WHEN** the API responds 503 with `{"status":"unavailable","database":"unreachable"}`
+- **WHEN** the API responds 503 with `"status":"unavailable"` and `"database":"unreachable"`
 - **THEN** the page shows "API: ok" and "Database: unreachable"
 
 #### Scenario: API unreachable

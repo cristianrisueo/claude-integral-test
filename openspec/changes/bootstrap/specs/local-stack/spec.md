@@ -16,12 +16,12 @@
 
 - **WHEN** `make up` finishes
 - **THEN** http://localhost:3000 shows "API: ok" and "Database: ok"
-- **AND** `GET http://localhost:3000/api/health` responds 200 with `{"status":"ok","database":"ok"}`
+- **AND** `GET http://localhost:3000/api/health` responds 200 with `{"status":"ok","database":"ok","version":"dev"}`
 
 #### Scenario: Database stopped
 
 - **WHEN** the `db` service is stopped while `api` and `web` run
-- **THEN** `GET http://localhost:3000/api/health` responds 503 with `{"status":"unavailable","database":"unreachable"}`
+- **THEN** `GET http://localhost:3000/api/health` responds 503 with `{"status":"unavailable","database":"unreachable","version":"dev"}`
 
 #### Scenario: Data survives a restart
 
@@ -37,7 +37,7 @@ The suite MUST check both the page and `GET /api/health`.
 
 - **WHEN** `make up` has finished and `make e2e` runs without `BASE_URL`
 - **THEN** the suite passes: the page shows "API: ok" and "Database: ok"
-- **AND** `/api/health` responds 200 with `{"status":"ok","database":"ok"}`
+- **AND** `/api/health` responds 200 with `{"status":"ok","database":"ok","version":"dev"}`
 
 #### Scenario: Against another URL
 

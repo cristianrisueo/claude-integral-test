@@ -8,7 +8,7 @@ The same app runs on your machine under docker compose. It also runs in a short-
 ## What you'll see when it's done
 
 - `make up`, then http://localhost:3000: a page that says "API: ok" and "Database: ok".
-- `GET /api/health` answers `{"status":"ok","database":"ok"}`. With the database stopped, it answers 503 and the page says "Database: unreachable".
+- `GET /api/health` answers `{"status":"ok","database":"ok","version":"dev"}` locally; in production, `version` is the deployed commit. With the database stopped, it answers 503 and the page says "Database: unreachable".
 - Three new GitHub workflows:
   - `cd.yml` deploys;
   - `verify.yml` checks the live site;
@@ -30,6 +30,7 @@ The same app runs on your machine under docker compose. It also runs in a short-
 - `make e2e` passes on your machine, and the CI `e2e` job runs it on every pull request.
 - `make check-infra`: Terraform tests show, without touching AWS, that production can be destroyed and that `/api/*` reaches the API.
 - Every pull request plans production in CI, and plan-guard confirms the plan deletes and replaces nothing.
+- Every verification checks that the live site runs the commit just deployed. A deploy whose new version never starts fails, even though the old version still answers.
 - The last slice runs a round trip in GitHub: destroy, deploy from nothing, verify by hand, destroy again.
   - Each run is green on its first attempt.
   - The slice report links every run.
@@ -57,6 +58,10 @@ The same app runs on your machine under docker compose. It also runs in a short-
   - AWS generates the database password, so a re-create never collides with a secret still pending deletion.
   - The state bucket is not part of production and stays protected.
 - **The API always runs the image tagged `live`.** Each deploy pushes a new `live` image and restarts the service. The Terraform plan then stays the same between commits, so plan-guard does not flag every deploy.
+- **The health check reports its version.**
+  - The commit SHA is baked into the image when it is built. A local build reports `dev`.
+  - With a single `live` tag, a new task that never starts leaves the old one running, and a check of health alone would still pass.
+  - So `verify.yml` fails unless the live version equals the commit being deployed. When you run it by hand, it expects the latest commit on main.
 - **No custom domain.**
   - The site uses CloudFront's own address.
   - CloudFront talks to the load balancer over plain HTTP inside AWS, because a load balancer without a domain cannot have a certificate.
