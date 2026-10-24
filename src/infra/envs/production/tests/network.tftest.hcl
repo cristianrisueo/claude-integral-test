@@ -3,7 +3,9 @@
 # credentials. The mock leaves unset rule fields null where AWS returns [] or
 # false, so "no other source" accepts both.
 
-mock_provider "aws" {}
+mock_provider "aws" {
+  source = "./tests/mocks"
+}
 
 override_data {
   target = data.aws_ec2_managed_prefix_list.cloudfront
