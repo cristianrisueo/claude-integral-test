@@ -74,6 +74,7 @@ down: ## Stop the local stack, keeping its volumes (never -v)
 
 harness-test: ## Tests of the hooks, change-guard, plan-guard and spec-lint
 	@bash .claude/hooks/guard_test.sh
+	@bash .claude/hooks/archive-session_test.sh
 	@bash tools/change-guard_test.sh
 	@bash tools/plan-guard_test.sh
 	@cd tools/spec-lint && go test -count=1 ./...

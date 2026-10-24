@@ -53,4 +53,4 @@ Do not write a summary. Show Cristian the one document he approves, followed by 
    - **chore PR:** nothing; the harness change is live on `main`.
    - **propose PR:** `/build <change-id> 01`, in a new session.
    - **Slice that is not the last:** `/build <change-id> <NN+1>`, in a new session.
-   - **Last slice:** the change is complete; its folder is in `openspec/changes/archive/`.
+   - **Last slice:** the change is complete; its folder is in `openspec/changes/archive/`. Next: `/retro <change-id>`, in a new session.

@@ -22,6 +22,7 @@ The application folders are created by the changes that build them. Until then, 
 | `.claude/`  | Claude Code settings, skills, hooks and templates                       | Claude, in every session                                                      |
 | `.github/`  | The CI workflow and the pull request template                           | GitHub Actions, every PR                                                      |
 | `openspec/` | What the app does today, and the changes in progress                    | The owner and Claude                                                          |
+| `docs/`     | `retros/`: the retrospective of each finished change                    | The owner, and the next retro                                                 |
 | `tools/`    | Deterministic checks: spec lint, change guard, plan guard               | `make`, Claude's hooks and CI                                                 |
 | `src/`      | The application: backend, frontend, end-to-end tests and infrastructure | Created by later changes; `src/infra/bootstrap/` is applied once by the owner |
 
@@ -32,7 +33,7 @@ The application folders are created by the changes that build them. Until then, 
 - `src/e2e/`: the Playwright end-to-end tests;
 - `src/infra/`: the Terraform for AWS. Its `bootstrap/` folder already exists: the one-time setup (state bucket, GitHub OIDC provider, plan and deploy roles) that the owner applies by hand, following its README.
 
-**`.claude/`** holds `settings.json` (permissions, the sandbox and the hooks), the four skills (`/propose`, `/build`, `/audit`, `/ship`), the hooks that block what must never happen (a commit on `main`, a force push, `terraform apply`, wiping the database) and the templates the skills fill in.
+**`.claude/`** holds `settings.json` (permissions, the sandbox and the hooks), the five skills (`/propose`, `/build`, `/audit`, `/ship`, `/retro`), the hooks that block what must never happen (a commit on `main`, a force push, `terraform apply`, wiping the database) and the templates the skills fill in. A SessionEnd hook also copies each session's transcript to `.claude/sessions/`, a local folder git ignores, for `/retro` to read.
 
 **`openspec/`** has three parts. `specs/` is what the app does today. `changes/` holds the changes in progress. `changes/archive/` holds the finished ones.
 
@@ -48,7 +49,7 @@ Work happens in **changes**. A change is a folder under `openspec/changes/<id>/`
 
 The owner reads two documents: the **proposal**, to approve a change, and the **slice report**, to approve each merge.
 
-A change moves through five steps:
+A change moves through six steps:
 
 1. **Propose.** Claude interviews the owner about the decisions that are expensive to change later, then writes the change and opens a pull request. Nothing is built until the owner reads the proposal and merges it.
 2. **Build, one slice at a time.** In a fresh session, Claude:
@@ -61,6 +62,7 @@ A change moves through five steps:
 3. **Check.** On the slice's pull request, GitHub Actions runs deterministic checks: harness tests, spec lint, linters, unit and end-to-end tests, and the Terraform plan. Then a read-only Claude audit compares the code with the change's requirements and posts a verdict. The audit allows at most one fix round.
 4. **Ship.** Claude shows the owner the slice report and the audit verdict. It merges the pull request only after the checks are green and the audit approves, and only after the owner explicitly says yes.
 5. **Deploy.** Applying infrastructure needs the owner's approval in GitHub. Claude never applies or destroys infrastructure.
+6. **Retro.** After the last slice merges, `/retro <change-id>`, in a new session, looks back at how the harness behaved: audit approvals, fix rounds, guard blocks, CI failures, prompts. It proposes at most five improvements, each with its evidence, in `docs/retros/<change-id>.md`, and opens a PR with only that file. It never changes the harness. The owner decides which proposals become a later chore PR.
 
 When the last slice merges, the change is archived and `openspec/specs/` describes the system as it now is.
 
