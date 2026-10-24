@@ -72,7 +72,8 @@ The `deploy` job MUST run in the `production` environment, so it starts only aft
 `verify.yml` SHALL run as the last job of every `cd.yml` run, and on manual dispatch.
 It SHALL use the read-only role, with no approval.
 It SHALL read the site URL from the production state.
-The expected version SHALL be the SHA that `cd.yml` passes in (`github.sha`), or the HEAD commit of main when verify is dispatched by hand.
+When `cd.yml` calls it, the expected version SHALL be the SHA that `cd.yml` passes in (`github.sha`).
+When verify is dispatched by hand, ECR SHALL be the source of truth of what was deployed. The expected version SHALL be the one SHA tag that shares the digest of the `:live` image, read with the read-only role. Verify MUST fail, and say why, when `:live` has no SHA tag or more than one.
 It MUST require `GET /api/health` to answer 200 with `"status":"ok"`, `"database":"ok"` and `version` equal to the expected version, within 5 minutes.
 It SHALL then run the end-to-end suite against that URL.
 Any failed check MUST fail the run.
@@ -86,6 +87,16 @@ Any failed check MUST fail the run.
 
 - **WHEN** `/api/health` does not answer 200 with database ok within 5 minutes
 - **THEN** the run fails, and nothing is rolled back
+
+#### Scenario: Manual run after a merge that deployed nothing
+
+- **WHEN** verify is dispatched by hand after a merge that did not trigger `cd.yml`, so main's HEAD is newer than the deployed commit
+- **THEN** the expected version is the SHA tag of the `:live` image, and verify passes if the site runs it
+
+#### Scenario: Live image without exactly one SHA tag
+
+- **WHEN** verify is dispatched by hand and the `:live` image has no SHA tag, or more than one
+- **THEN** the run fails before any check, and says which case it found
 
 #### Scenario: New version never started
 

@@ -61,7 +61,9 @@ The same app runs on your machine under docker compose. It also runs in a short-
 - **The health check reports its version.**
   - The commit SHA is baked into the image when it is built. A local build reports `dev`.
   - With a single `live` tag, a new task that never starts leaves the old one running, and a check of health alone would still pass.
-  - So `verify.yml` fails unless the live version equals the commit being deployed. When you run it by hand, it expects the latest commit on main.
+  - So `verify.yml` fails unless the live version equals the commit being deployed.
+  - When you run it by hand, ECR decides what was deployed. Every deploy pushes the same image as the commit SHA and as `live`, so the expected version is the SHA tag of the `live` image. Main's HEAD may be newer than what is deployed, after a merge that triggers no deploy.
+  - If the `live` image has no SHA tag, or more than one, verify fails and says so.
 - **No custom domain.**
   - The site uses CloudFront's own address.
   - CloudFront talks to the load balancer over plain HTTP inside AWS, because a load balancer without a domain cannot have a certificate.

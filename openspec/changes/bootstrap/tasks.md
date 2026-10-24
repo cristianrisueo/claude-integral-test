@@ -215,13 +215,17 @@
   - job `verify`, calling `verify.yml` with the input `expected_version: ${{ github.sha }}`.
 - `.github/workflows/verify.yml`:
   - `workflow_call`, with the required input `expected_version`, and `workflow_dispatch`;
-  - on dispatch, the expected version is the HEAD commit of main (`git rev-parse origin/main`);
-  - the plan role, with the URL from `terraform output -raw url`;
+  - the plan role, with the URL from `terraform output -raw url` and the repository from `terraform output -raw ecr_repository_url`;
+  - on dispatch, the expected version comes from `src/e2e/scripts/live-version.sh`, fed with `aws ecr describe-images --image-ids imageTag=live` for that repository;
   - `src/e2e/scripts/check-health.sh` with the URL and the expected version, then `make e2e` with `BASE_URL` set to the URL;
   - the URL, the live version and the expected version in the run summary.
 - `src/e2e/scripts/check-health.sh`, which takes a base URL and an expected version:
   - it retries `GET /api/health` until the answer is 200 with database ok and `version` equal to the expected version;
   - it gives up after `VERIFY_TIMEOUT` seconds (default 300), printing the live and the expected version, and exits non-zero.
+- `src/e2e/scripts/live-version.sh` and its fixtures under `src/e2e/scripts/testdata/`:
+  - it reads the `describe-images` JSON of the `:live` image on stdin;
+  - it prints the one tag that is a 40-character commit SHA;
+  - with no SHA tag, or more than one, it prints which case it found and exits non-zero.
 
 **Out of scope:**
 
@@ -232,18 +236,21 @@
 
 | ID  | Criterion | Verified by |
 | --- | --------- | ----------- |
-| AC1 | Both workflows are valid | `docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.7 .github/workflows/cd.yml .github/workflows/verify.yml` prints nothing and exits 0 |
-| AC2 | `cd.yml` runs on a push to main that touches the four paths, and on dispatch, and on nothing else | `grep -nA8 '^on:' .github/workflows/cd.yml` shows `push` to `main` with exactly those four paths, and `workflow_dispatch` |
-| AC3 | Only `deploy` runs in `production`, after `plan`, and `plan` runs plan-guard | `grep -nE 'environment:\|needs:\|plan-guard' .github/workflows/cd.yml` |
-| AC4 | `cd.yml` shares the group `production` and never cancels a run in progress | `grep -nA2 '^concurrency:' .github/workflows/cd.yml` shows `group: production` and `cancel-in-progress: false` |
+| AC1  | Both workflows are valid | `docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.7 .github/workflows/cd.yml .github/workflows/verify.yml` prints nothing and exits 0 |
+| AC2  | `cd.yml` runs on a push to main that touches the four paths, and on dispatch, and on nothing else | `grep -nA8 '^on:' .github/workflows/cd.yml` shows `push` to `main` with exactly those four paths, and `workflow_dispatch` |
+| AC3  | Only `deploy` runs in `production`, after `plan`, and `plan` runs plan-guard | `grep -nE 'environment:\|needs:\|plan-guard' .github/workflows/cd.yml` |
+| AC4  | `cd.yml` shares the group `production` and never cancels a run in progress | `grep -nA2 '^concurrency:' .github/workflows/cd.yml` shows `group: production` and `cancel-in-progress: false` |
 | AC5  | `verify.yml` can be called by `cd.yml` and dispatched by hand, and `cd.yml` calls it after `deploy` | `grep -nE 'workflow_call\|workflow_dispatch' .github/workflows/verify.yml`, and `grep -n 'verify.yml' .github/workflows/cd.yml` |
 | AC6  | `cd.yml` builds the image with the commit SHA and passes the same SHA to `verify.yml` as the expected version | `grep -nE 'VERSION=\|expected_version' .github/workflows/cd.yml` shows `VERSION=${{ github.sha }}` in `deploy` and `expected_version: ${{ github.sha }}` in `verify` |
-| AC7  | A manual dispatch of `verify.yml` expects the HEAD commit of main | `grep -nE 'expected_version\|origin/main' .github/workflows/verify.yml` shows the input for `workflow_call` and `git rev-parse origin/main` for `workflow_dispatch` |
-| AC8  | The health check passes on a healthy site running the expected version | `make up`, then `src/e2e/scripts/check-health.sh http://localhost:3000 dev` exits 0 |
-| AC9  | The health check fails on an unhealthy site within its time limit | `docker compose stop db`, then `VERIFY_TIMEOUT=10 src/e2e/scripts/check-health.sh http://localhost:3000 dev` exits non-zero in about 10 seconds; then `make up` |
-| AC10 | The health check fails when a healthy site runs another version, and names both versions | `make up`, then `VERIFY_TIMEOUT=10 src/e2e/scripts/check-health.sh http://localhost:3000 abc1234` exits non-zero in about 10 seconds and prints `dev` as live and `abc1234` as expected |
-| AC11 | The suite runs against a URL given in `BASE_URL`, as `verify.yml` runs it | `BASE_URL=http://localhost:3000 make e2e` passes |
-| AC12 | CI stays green | `gh pr checks <pr>` |
+| AC7  | A manual dispatch of `verify.yml` takes the expected version from the SHA tag of `:live` in ECR, with the read-only role | `grep -nE 'expected_version\|describe-images\|live-version' .github/workflows/verify.yml` shows the input for `workflow_call`, and `describe-images` piped to `live-version.sh` for `workflow_dispatch` |
+| AC8  | With exactly one SHA tag on `:live`, the script prints that SHA | `src/e2e/scripts/live-version.sh < src/e2e/scripts/testdata/one-sha.json` prints the fixture's SHA and exits 0 |
+| AC9  | With no SHA tag on `:live`, the script fails and says so | `src/e2e/scripts/live-version.sh < src/e2e/scripts/testdata/no-sha.json` exits non-zero and prints that `:live` has no SHA tag |
+| AC10 | With two SHA tags on `:live`, the script fails, says so and lists them | `src/e2e/scripts/live-version.sh < src/e2e/scripts/testdata/two-shas.json` exits non-zero and prints both SHAs |
+| AC11 | The health check passes on a healthy site running the expected version | `make up`, then `src/e2e/scripts/check-health.sh http://localhost:3000 dev` exits 0 |
+| AC12 | The health check fails on an unhealthy site within its time limit | `docker compose stop db`, then `VERIFY_TIMEOUT=10 src/e2e/scripts/check-health.sh http://localhost:3000 dev` exits non-zero in about 10 seconds; then `make up` |
+| AC13 | The health check fails when a healthy site runs another version, and names both versions | `make up`, then `VERIFY_TIMEOUT=10 src/e2e/scripts/check-health.sh http://localhost:3000 abc1234` exits non-zero in about 10 seconds and prints `dev` as live and `abc1234` as expected |
+| AC14 | The suite runs against a URL given in `BASE_URL`, as `verify.yml` runs it | `BASE_URL=http://localhost:3000 make e2e` passes |
+| AC15 | CI stays green | `gh pr checks <pr>` |
 
 ## Slice 07 — Round trip
 
@@ -278,7 +285,7 @@ Then:
 | AC1 | The `cd.yml` run from the merge of slice 06 deployed and verified production, running that merge commit | `gh run view <run-id>`: `plan`, `deploy` and `verify` succeeded on attempt 1, and the `verify` summary shows a live version equal to the run's head SHA |
 | AC2 | The first destroy deleted all of production in one run, and left the bootstrap intact | `gh run view <run-id> --log`: `destroy` succeeded on attempt 1, the state list is empty and the state bucket exists |
 | AC3 | `cd.yml` from nothing re-created production with no collision and no manual step, running the dispatched commit | `gh run view <run-id>`: every job succeeded on attempt 1, and the `verify` summary shows a live version equal to the run's head SHA |
-| AC4 | The manual verification passed on the re-created site, with the HEAD commit of main as the live version | `gh run view <run-id>` of `verify.yml`: succeeded on attempt 1, and its summary shows the live and the expected version equal to `git rev-parse origin/main` |
+| AC4 | The manual verification read the expected version from ECR and passed on the re-created site | `gh run view <run-id>` of `verify.yml`: succeeded on attempt 1, and its summary shows the SHA tag of `:live` as the expected version, equal to the live version and to the head SHA of the run in AC3 |
 | AC5 | The site served the page and the API on one HTTPS address | the summaries of the runs in AC3 and AC4 show the `https://<id>.cloudfront.net` URL, with both checks passed |
 | AC6 | The second destroy left production destroyed and the bootstrap intact | `gh run view <run-id> --log`: `destroy` succeeded on attempt 1, the state list is empty and the state bucket exists |
 | AC7 | This slice changes no workflow or infrastructure code | `git diff --stat origin/main...HEAD -- .github src/infra` prints nothing |
