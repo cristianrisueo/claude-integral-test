@@ -41,6 +41,7 @@ Count the PR's previous comments that start with `<!-- harness:audit -->`. Round
 - The code does what the change's requirements and scenarios say.
 - Nothing outside the slice's scope (its Scope and Out of scope) was changed.
 - No rule of `CLAUDE.md` is broken.
+- Under `.github/`, the diff touches only `workflows/cd.yml`, `workflows/destroy.yml`, `workflows/verify.yml` and lines inside the `checks`, `e2e` and `terraform` jobs of `workflows/ci.yml`. List the paths with `gh pr diff $0 --name-only`. For each `ci.yml` hunk, map its `+` line numbers onto the checked-out `ci.yml` (the PR's merge commit) to find the enclosing job. A changed line outside those three jobs (the header comment, `on:`, `permissions:`, `concurrency:`, or the `harness`, `spec` and `audit` jobs), or any other file under `.github/`, the pull request template included, breaks this rule of `CLAUDE.md` and is blocking.
 - No secret, credential or personal data is committed.
 - Tests were not weakened: no deleted or loosened assertions, and no skipped tests in files that exist on `main`.
 

@@ -33,7 +33,7 @@ Use these verbs. Never call the underlying tool directly when a verb exists.
 | Verb                    | Runs                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `make check`            | `make harness-test`, then `gofmt -l` + `go vet` (`src/api`), `npm run lint` + `typecheck` (`src/web`)       |
-| `make check-infra`      | `terraform fmt -check`, then `init -backend=false` + `validate` in every `src/infra` folder with `.tf` files (runs outside the sandbox) |
+| `make check-infra`      | `terraform fmt -check`, then `init -backend=false` + `validate` in every `src/infra` folder with `.tf` files, then `terraform test` in every one with a `tests/` directory (runs outside the sandbox) |
 | `make test`             | `go test -race -count=1 ./...` (`src/api`), `npm test -- --run` (`src/web`)                                   |
 | `make e2e`              | Playwright in `src/e2e/` against the local stack                                                              |
 | `make up` / `make down` | `docker compose up -d --wait` / `docker compose down` (never `-v`)                                            |
@@ -54,7 +54,8 @@ Always run terraform as `terraform init ...` or `terraform validate ...` from in
 
 - Never commit or push on `main`. It changes only through squash-merged PRs.
 - Branches are `propose/<id>` for a proposal and `feat/<id>-<NN>` for a slice.
-- Harness maintenance (`.claude/`, `CLAUDE.md`, `Makefile`, `tools/`, `.github/`) goes on `chore/*` branches. CI runs on them; the audit does not.
+- Harness maintenance (`.claude/`, `CLAUDE.md`, `Makefile`, `tools/`, and `.github/` except what a change may edit, below) goes on `chore/*` branches. CI runs on them; the audit does not.
+- A change may edit `.github/workflows/cd.yml`, `destroy.yml`, `verify.yml` and the `checks`, `e2e` and `terraform` jobs of `ci.yml`. It never edits the harness jobs of `ci.yml` (`harness`, `spec`, `audit`), the pull request template, or anything else under `.github/`. `/audit` checks this from the diff.
 - Use Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `ci:`, `refactor:`). The PR title becomes the squash commit and follows the same convention.
 - Never force push. Never merge except through `/ship`.
 
